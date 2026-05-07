@@ -76,8 +76,8 @@ export async function createRewardInvoice(params: {
     dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
     paymentChannels: [
       {
-        chain: env.PVIUM_INVOICE_PAYMENT_CHANNEL_CHAIN,
-        currency: params.currency || env.PVIUM_INVOICE_PAYMENT_CHANNEL_CURRENCY,
+        chain: env.PVIUM_REWARD_PAYMENT_CHAIN,
+        currency: params.currency || env.PVIUM_REWARD_PAYMENT_CURRENCY,
       },
     ],
     redirectUri: env.PVIUM_INVOICE_REDIRECT_URI,
@@ -107,19 +107,19 @@ async function createRewardInstantBatchPayment(params: {
 }) {
   const env = getEnv();
   const signerPrivateKey =
-    env.PVIUM_REWARD_BATCH_SIGNER_PRIVATE_KEY ||
+    env.PVIUM_REWARD_PAYMENT_SIGNER_PRIVATE_KEY ||
     env.PVIUM_INVITE_SIGNER_PRIVATE_KEY;
-  const token = env.PVIUM_REWARD_BATCH_TOKEN_ADDRESS || params.currency;
+  const token = env.PVIUM_REWARD_PAYMENT_TOKEN_ADDRESS || params.currency;
 
   if (!signerPrivateKey) {
     throw new Error(
-      "PVIUM_REWARD_BATCH_SIGNER_PRIVATE_KEY is required for instant batch reward payments",
+      "PVIUM_REWARD_PAYMENT_SIGNER_PRIVATE_KEY is required for instant batch reward payments",
     );
   }
 
   if (!EVM_ADDRESS_RE.test(token)) {
     throw new Error(
-      "PVIUM_REWARD_BATCH_TOKEN_ADDRESS must be configured with an ERC-20 token address for instant batch reward payments",
+      "PVIUM_REWARD_PAYMENT_TOKEN_ADDRESS must be configured with an ERC-20 token address for instant batch reward payments",
     );
   }
 
@@ -143,7 +143,7 @@ async function createRewardInstantBatchPayment(params: {
       receiver: rewardWallet,
       amount: params.amount,
       token,
-      decimals: env.PVIUM_REWARD_BATCH_TOKEN_DECIMALS,
+      decimals: env.PVIUM_REWARD_PAYMENT_TOKEN_DECIMALS,
       memo: params.description,
       publicId: params.githubLogin ? `github:${params.githubLogin}` : undefined,
     },
@@ -160,7 +160,7 @@ async function createRewardInstantBatchPayment(params: {
       receiver: env.PVIUM_REWARD_PLATFORM_FEE_WALLET,
       amount: feeAmount,
       token,
-      decimals: env.PVIUM_REWARD_BATCH_TOKEN_DECIMALS,
+      decimals: env.PVIUM_REWARD_PAYMENT_TOKEN_DECIMALS,
       memo: "platform-fee",
       publicId: "platform-fee",
     });
@@ -172,7 +172,7 @@ async function createRewardInstantBatchPayment(params: {
   const created = await getPvium().payout.create(
     {
       type: "Instant",
-      chain: env.PVIUM_REWARD_BATCH_CHAIN,
+      chain: env.PVIUM_REWARD_PAYMENT_CHAIN,
       name: params.title,
       description: params.description,
       payments,
@@ -196,7 +196,7 @@ async function createRewardInstantBatchPayment(params: {
       privateKey: signerPrivateKey,
     },
     {
-      chainId: env.PVIUM_REWARD_BATCH_CHAIN_ID,
+      chainId: env.PVIUM_REWARD_PAYMENT_CHAIN_ID,
       clientId: env.PVIUM_CLIENT_ID,
       payments,
     },

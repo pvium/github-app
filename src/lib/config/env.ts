@@ -20,11 +20,16 @@ const envSchema = z.object({
   PVIUM_REWARD_PAYMENT_MODEL: z
     .enum(["invoice", "instant-batch"])
     .default("instant-batch"),
-  PVIUM_REWARD_BATCH_SIGNER_PRIVATE_KEY: optionalNonEmptyString,
-  PVIUM_REWARD_BATCH_CHAIN: z.string().default("base"),
-  PVIUM_REWARD_BATCH_CHAIN_ID: z.coerce.number().int().positive().default(8453),
-  PVIUM_REWARD_BATCH_TOKEN_ADDRESS: optionalNonEmptyString,
-  PVIUM_REWARD_BATCH_TOKEN_DECIMALS: z.coerce
+  PVIUM_REWARD_PAYMENT_SIGNER_PRIVATE_KEY: optionalNonEmptyString,
+  PVIUM_REWARD_PAYMENT_CHAIN: z.string().default("base"),
+  PVIUM_REWARD_PAYMENT_CHAIN_ID: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(8453),
+  PVIUM_REWARD_PAYMENT_CURRENCY: z.string().default("USDC"),
+  PVIUM_REWARD_PAYMENT_TOKEN_ADDRESS: optionalNonEmptyString,
+  PVIUM_REWARD_PAYMENT_TOKEN_DECIMALS: z.coerce
     .number()
     .int()
     .nonnegative()
@@ -32,8 +37,6 @@ const envSchema = z.object({
   PVIUM_REWARD_PLATFORM_FEE_WALLET: optionalNonEmptyString,
   PVIUM_REWARD_PLATFORM_FEE_AMOUNT: z.coerce.number().nonnegative().default(0),
   PVIUM_INVOICE_REDIRECT_URI: z.string().url(),
-  PVIUM_INVOICE_PAYMENT_CHANNEL_CHAIN: z.string().default("base"),
-  PVIUM_INVOICE_PAYMENT_CHANNEL_CURRENCY: z.string().default("USDC"),
   APP_BASE_URL: z.string().url(),
 });
 

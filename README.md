@@ -59,16 +59,15 @@ PVIUM_WEBHOOK_SECRET=""
 PVIUM_INVITE_SIGNER_PRIVATE_KEY=""
 PVIUM_OAUTH_REDIRECT_URI="http://localhost:3000/api/pvium/oauth/callback"
 PVIUM_REWARD_PAYMENT_MODEL="instant-batch"
-PVIUM_REWARD_BATCH_SIGNER_PRIVATE_KEY=""
-PVIUM_REWARD_BATCH_CHAIN="base"
-PVIUM_REWARD_BATCH_CHAIN_ID="8453"
-PVIUM_REWARD_BATCH_TOKEN_ADDRESS=""
-PVIUM_REWARD_BATCH_TOKEN_DECIMALS="6"
+PVIUM_REWARD_PAYMENT_SIGNER_PRIVATE_KEY=""
+PVIUM_REWARD_PAYMENT_CHAIN="base"
+PVIUM_REWARD_PAYMENT_CHAIN_ID="8453"
+PVIUM_REWARD_PAYMENT_CURRENCY="USDC"
+PVIUM_REWARD_PAYMENT_TOKEN_ADDRESS=""
+PVIUM_REWARD_PAYMENT_TOKEN_DECIMALS="6"
 PVIUM_REWARD_PLATFORM_FEE_WALLET=""
 PVIUM_REWARD_PLATFORM_FEE_AMOUNT="0"
 PVIUM_INVOICE_REDIRECT_URI="https://github.com"
-PVIUM_INVOICE_PAYMENT_CHANNEL_CHAIN="base"
-PVIUM_INVOICE_PAYMENT_CHANNEL_CURRENCY="USDC"
 
 APP_BASE_URL="http://localhost:3000"
 ```
@@ -96,11 +95,13 @@ uses the token payload to detect invite acceptance and payment completion.
 
 `PVIUM_REWARD_PAYMENT_MODEL` controls the payment artifact. Set it to
 `instant-batch` to create a finalized instant batch payment link. Set it to
-`invoice` to use the legacy invoice flow. For `instant-batch`, configure:
+`invoice` to use the legacy invoice flow. Configure:
 
-- `PVIUM_REWARD_BATCH_SIGNER_PRIVATE_KEY`: private key used to sign the batch. If omitted, the invite signer is used.
-- `PVIUM_REWARD_BATCH_CHAIN` and `PVIUM_REWARD_BATCH_CHAIN_ID`: chain used for the batch payment link.
-- `PVIUM_REWARD_BATCH_TOKEN_ADDRESS` and `PVIUM_REWARD_BATCH_TOKEN_DECIMALS`: payout token used for both reward and platform fee rows.
+- `PVIUM_REWARD_PAYMENT_CHAIN`: chain used by both invoice payment channels and instant batch links.
+- `PVIUM_REWARD_PAYMENT_CURRENCY`: invoice payment currency.
+- `PVIUM_REWARD_PAYMENT_SIGNER_PRIVATE_KEY`: private key used to sign instant batches. If omitted, the invite signer is used.
+- `PVIUM_REWARD_PAYMENT_CHAIN_ID`: chain id used to finalize instant batches.
+- `PVIUM_REWARD_PAYMENT_TOKEN_ADDRESS` and `PVIUM_REWARD_PAYMENT_TOKEN_DECIMALS`: instant batch payout token used for both reward and platform fee rows.
 - `PVIUM_REWARD_PLATFORM_FEE_WALLET`: wallet that receives the platform fee.
 - `PVIUM_REWARD_PLATFORM_FEE_AMOUNT`: fixed platform fee amount. When greater than zero, the batch includes a second payee with memo `platform-fee`.
 
