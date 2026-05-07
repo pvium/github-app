@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BountyStatus {
+  OPEN
+  RESERVED
+  INVOICE_CREATED
+  PAID
+  CANCELLED
+}
+
+enum RewardStatus {
+  PENDING_INVITE
+  WAITING_FOR_ACCEPTANCE
+  INVOICE_CREATED
+  PAID
+  FAILED
+}
+
+model RepositoryInstallation {
+  id             String   @id @default(cuid())
+  installationId BigInt   @unique
+  owner          String
+  repo           String
+  githubNodeId   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  bounties Bounty[]
+
+  @@unique([owner, repo])
+}
+
+model GithubUserLink {
+  id                        String    @id @default(cuid())
+  githubLogin               String    @unique
+  githubUserId              BigInt?   @unique
+  pviumUserId               String
+  pviumHandle               String?
+  pviumAccessToken          String?   @db.Text
+  pviumRefreshToken         String?   @db.Text
+  pviumTokenType            String?
+  pviumAccessTokenExpiresAt DateTime?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  rewards RewardAttempt[]
+}
+
+model Bounty {
+  id           String       @id @default(cuid())
+  repositoryId String
+  issueNumber  Int
+  issueNodeId  String?
+  labelName    String
+  amount       Decimal      @db.Decimal(18, 6)
+  currency     String
+  status       BountyStatus @default(OPEN)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  repository RepositoryInstallation @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  rewards    RewardAttempt[]
+
+  @@unique([repositoryId, issueNumber, labelName])
+  @@index([repositoryId, issueNumber])
+}
+
+model RewardAttempt {
+  id                 String       @id @default(cuid())
+  bountyId           String
+  githubUserLinkId   String?
+  pullRequestNumber  Int
+  pullRequestNodeId  String?
+  solverGithubLogin  String
+  solverGithubUserId BigInt?
+  pviumInviteLink    String?
+  pviumInvoiceId     String?
+  pviumInvoiceUrl    String?
+  status             RewardStatus @default(PENDING_INVITE)
+  error              String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  bounty         Bounty          @relation(fields: [bountyId], references: [id], onDelete: Cascade)
+  githubUserLink GithubUserLink? @relation(fields: [githubUserLinkId], references: [id], onDelete: SetNull)
+
+  @@unique([bountyId, pullRequestNumber, solverGithubLogin])
+}
+
+model WebhookDelivery {
+  id          String   @id
+  event       String
+  action      String?
+  repository  String?
+  sender      String?
+  processedAt DateTime @default(now())
+  error       String?
+}

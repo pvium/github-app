@@ -1,0 +1,16 @@
+node_modules
+.next
+dist
+coverage
+.env
+.env.local
+*.log
+secrets.json
+.DS_Store
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
