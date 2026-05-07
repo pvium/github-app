@@ -10,7 +10,6 @@ function getPvium() {
     environment: env.PVIUM_ENVIRONMENT,
     apiKey: env.PVIUM_API_KEY,
     clientId: env.PVIUM_CLIENT_ID,
-    clientSecret: env.PVIUM_CLIENT_SECRET,
   });
   return pvium;
 }

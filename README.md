@@ -54,7 +54,6 @@ GITHUB_WEBHOOK_SECRET=""
 PVIUM_ENVIRONMENT="sandbox"
 PVIUM_API_KEY=""
 PVIUM_CLIENT_ID=""
-PVIUM_CLIENT_SECRET=""
 PVIUM_WEBHOOK_SECRET=""
 PVIUM_INVITE_SIGNER_PRIVATE_KEY=""
 PVIUM_OAUTH_REDIRECT_URI="http://localhost:3000/api/pvium/oauth/callback"
@@ -94,7 +93,6 @@ Configure the Pvium webhook URL:
 ```text
 https://<your-host>/api/pvium/webhook
 ```
-//thisisasecreteThatCantChangeSandbox
 
 Set `PVIUM_WEBHOOK_SECRET` to the same webhook secret configured on the Pvium
 client app. Pvium posts `{ event, token }`; the app verifies the signed JWT and
