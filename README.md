@@ -78,6 +78,12 @@ Configure the GitHub App webhook URL:
 https://<your-host>/api/github/webhook
 ```
 
+Set these GitHub App repository permissions:
+
+- Issues: read and write
+- Pull requests: read-only
+- Metadata: read-only
+
 Subscribe the GitHub App to:
 
 - `issues`
@@ -88,6 +94,7 @@ Configure the Pvium webhook URL:
 ```text
 https://<your-host>/api/pvium/webhook
 ```
+//thisisasecreteThatCantChangeSandbox
 
 Set `PVIUM_WEBHOOK_SECRET` to the same webhook secret configured on the Pvium
 client app. Pvium posts `{ event, token }`; the app verifies the signed JWT and
