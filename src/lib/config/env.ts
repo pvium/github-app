@@ -13,7 +13,6 @@ const envSchema = z.object({
   PVIUM_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
   PVIUM_API_KEY: z.string().min(1),
   PVIUM_CLIENT_ID: z.string().min(1),
-  PVIUM_CLIENT_SECRET: z.string().min(1),
   PVIUM_WEBHOOK_SECRET: optionalNonEmptyString,
   PVIUM_INVITE_SIGNER_PRIVATE_KEY: z.string().min(1),
   PVIUM_OAUTH_REDIRECT_URI: z.string().url(),
