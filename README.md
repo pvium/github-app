@@ -71,6 +71,19 @@ PVIUM_INVOICE_REDIRECT_URI="https://github.com"
 APP_BASE_URL="http://localhost:3000"
 ```
 
+Generate `GITHUB_APP_PRIVATE_KEY` from the GitHub App settings page:
+
+1. Open GitHub App settings.
+2. Go to **Private keys**.
+3. Click **Generate a private key** and download the `.pem` file.
+4. Copy the full PEM contents into `.env`, replacing line breaks with `\n`.
+
+Example format:
+
+```text
+GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
+```
+
 Configure the GitHub App webhook URL:
 
 ```text

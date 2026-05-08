@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "prisma generate && next build",
     "start": "next start",
     "test": "node --disable-warning=ExperimentalWarning --experimental-transform-types --test tests/*.test.ts",
     "lint": "next lint",
