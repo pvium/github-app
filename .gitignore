@@ -4,6 +4,8 @@ dist
 coverage
 .env
 .env.local
+.env.*
+!.env.example
 *.log
 secrets.json
 .DS_Store

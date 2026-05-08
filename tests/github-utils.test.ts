@@ -9,6 +9,7 @@ import {
   inviteRequiredMessage,
   invoiceCreatedMessage,
 } from "../src/lib/github/messages.ts";
+import { verifyGithubSignature } from "../src/lib/github/signature.ts";
 
 describe("parseBountyLabel", () => {
   it("parses explicit currency labels", () => {
@@ -98,6 +99,24 @@ describe("GitHub messages", () => {
     assert.match(
       body,
       /\[Pay reward\]\(https:\/\/pvium\.test\/invoice\/123\)/,
+    );
+  });
+});
+
+describe("verifyGithubSignature", () => {
+  it("validates GitHub's documented SHA-256 webhook signature example", () => {
+    const secret = "It's a Secret to Everybody";
+    const payload = "Hello, World!";
+    const signature =
+      "sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17";
+
+    assert.equal(
+      verifyGithubSignature({
+        secret,
+        payload,
+        signature,
+      }),
+      true,
     );
   });
 });
