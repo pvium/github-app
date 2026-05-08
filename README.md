@@ -15,7 +15,6 @@ maintainer can open and pay.
 6. Once the user accepts the invite and connects the matching GitHub account in Pvium, the Pvium webhook creates the payment link and comments the **Pay reward** link on the PR.
 7. When Pvium sends a paid/funded webhook, the app marks the reward and bounty as `PAID`.
 
-
 ## Local Setup
 
 This app uses the local Pvium SDK at:
