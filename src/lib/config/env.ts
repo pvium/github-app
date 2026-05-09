@@ -10,6 +10,7 @@ const envSchema = z.object({
   GITHUB_APP_ID: z.string().min(1),
   GITHUB_APP_PRIVATE_KEY: z.string().min(1),
   GITHUB_WEBHOOK_SECRET: z.string().min(1),
+  GITHUB_REWARD_TARGET_BRANCHES: z.string().default("main,master"),
   PVIUM_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
   PVIUM_API_KEY: z.string().min(1),
   PVIUM_CLIENT_ID: z.string().min(1),

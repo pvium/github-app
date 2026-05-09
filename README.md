@@ -9,7 +9,7 @@ maintainer can open and pay.
 
 1. A repository owner installs the GitHub App.
 2. A maintainer labels an issue with a Pvium bounty label, for example `pvium:20USDC` or `pvium:10`.
-3. When a pull request is merged into `main` or `master` and closes that issue, the app checks the PR author.
+3. When a pull request is merged into a configured reward target branch and closes that issue, the app checks the PR author.
 4. If the PR author is already linked to a Pvium account, the app creates a Pvium payment link and comments a **Pay reward** link on the PR.
 5. If the PR author is not linked, the app generates a signed Pvium OAuth invite for `type: "github"` and comments the invite link on the PR.
 6. Once the user accepts the invite and connects the matching GitHub account in Pvium, the Pvium webhook creates the payment link and comments the **Pay reward** link on the PR.
@@ -50,6 +50,7 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/pvium_github_app"
 GITHUB_APP_ID=""
 GITHUB_APP_PRIVATE_KEY=""
 GITHUB_WEBHOOK_SECRET=""
+GITHUB_REWARD_TARGET_BRANCHES="main,master"
 
 PVIUM_ENVIRONMENT="sandbox"
 PVIUM_API_KEY=""
@@ -101,6 +102,10 @@ Subscribe the GitHub App to:
 - `issues`
 - `pull_request`
 
+`GITHUB_REWARD_TARGET_BRANCHES` is a comma-separated list of base branches that
+can trigger reward processing when a PR is merged. For example, use
+`main,master,develop` to process merged PRs targeting `develop` too.
+
 Configure the Pvium webhook URL:
 
 ```text
@@ -145,7 +150,7 @@ Pvium events handled by this app:
 
 1. Install the GitHub App on a repository.
 2. Add a bounty label to an issue: `pvium:20USDC`, `pvium:20 USDC`, or `pvium:20`.
-3. Merge a PR into `main` or `master` with a closing reference like `Closes #123`.
+3. Merge a PR into a configured reward target branch with a closing reference like `Closes #123`.
 4. The app comments on the merged PR.
 5. If the contributor needs to link Pvium, they use the invite link in the comment.
 6. Pvium redirects back to `/api/pvium/oauth/callback` with an OAuth code.
