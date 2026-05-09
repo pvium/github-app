@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { getEnv } from "@/lib/config/env";
 import { parseBountyLabel } from "@/lib/github/bounty-label";
 import { createIssueComment } from "@/lib/github/client";
 import {
@@ -118,10 +119,20 @@ async function handleIssueLabeled(payload: GithubWebhookPayload) {
 }
 
 async function handlePullRequestClosed(payload: GithubWebhookPayload) {
+  const env = getEnv();
   const pullRequest = payload.pull_request;
   if (!pullRequest?.merged) return { ignored: true };
-  if (!["main", "master"].includes(pullRequest.base?.ref)) {
-    return { ignored: true };
+
+  const targetBranches = env.GITHUB_REWARD_TARGET_BRANCHES.split(",")
+    .map((branch) => branch.trim())
+    .filter(Boolean);
+  if (!targetBranches.includes(pullRequest.base?.ref)) {
+    return {
+      ignored: true,
+      reason: "Pull request target branch is not configured for rewards",
+      branch: pullRequest.base?.ref,
+      targetBranches,
+    };
   }
 
   const repository = await upsertRepository(payload);
