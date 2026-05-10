@@ -145,3 +145,15 @@ the contributor to authorize again. Access tokens are refreshed through the SDK
 when they are expired.
 Treat these OAuth tokens as secrets. Production deployments should encrypt them
 at rest and restrict database access accordingly.
+
+## Test Bounty Checklist
+
+Use this flow when validating a small end-to-end bounty:
+
+1. Create or pick an issue with a Pvium bounty label such as `pvium:10USDC`.
+2. Open a pull request from a contributor account with a closing reference in
+   the PR body, for example `Closes #9`.
+3. Merge the PR into `main` or `master`.
+4. Confirm the app comments with either a Pvium invite link or a **Pay reward**
+   link, depending on whether the contributor has already linked Pvium.
+5. Complete the Pvium payment flow and verify the bounty is marked `PAID`.
