@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { createIssueComment } from "@/lib/github/client";
 import { invoiceCreatedMessage } from "@/lib/github/messages";
 import { getEnv } from "@/lib/config/env";
+import { serializeError } from "@/lib/errors";
 import {
   createRewardInvoice,
   exchangePviumAuthorizationCode,
@@ -129,15 +130,48 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  const invoice = await createRewardInvoice({
-    amount: Number(reward.bounty.amount),
-    currency: reward.bounty.currency,
-    title: `Pvium GitHub reward for ${reward.bounty.repository.owner}/${reward.bounty.repository.repo}#${reward.pullRequestNumber}`,
-    description: `Reward for @${reward.solverGithubLogin} after merged PR #${reward.pullRequestNumber}.`,
-    githubLogin: reward.solverGithubLogin,
-    accessToken,
-    pviumUser,
-  });
+  let invoice: Awaited<ReturnType<typeof createRewardInvoice>>;
+  try {
+    invoice = await createRewardInvoice({
+      amount: Number(reward.bounty.amount),
+      currency: reward.bounty.currency,
+      title: `Pvium GitHub reward for ${reward.bounty.repository.owner}/${reward.bounty.repository.repo}#${reward.pullRequestNumber}`,
+      description: `Reward for @${reward.solverGithubLogin} after merged PR #${reward.pullRequestNumber}.`,
+      githubLogin: reward.solverGithubLogin,
+      accessToken,
+      pviumUser,
+    });
+  } catch (error) {
+    const serializedError = serializeError(error);
+    await prisma.rewardAttempt.update({
+      where: { id: reward.id },
+      data: {
+        githubUserLinkId: link.id,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to create Pvium reward payment",
+      },
+    });
+
+    console.error("[pvium-oauth] failed to create reward payment", {
+      rewardAttemptId: reward.id,
+      githubLogin: reward.solverGithubLogin,
+      error: serializedError,
+      errorJson: JSON.stringify(serializedError),
+    });
+
+    return NextResponse.json(
+      {
+        error: "Failed to create Pvium reward payment",
+        detail:
+          error instanceof Error
+            ? error.message
+            : "Unexpected Pvium payment creation error",
+      },
+      { status: 409 },
+    );
+  }
 
   await prisma.rewardAttempt.update({
     where: { id: reward.id },
