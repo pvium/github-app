@@ -66,6 +66,10 @@ describe("extractLinkedIssueNumbers", () => {
     );
   });
 
+  it("extracts closing issue references with a colon separator", () => {
+    assert.deepEqual(extractLinkedIssueNumbers("Closes: #2"), [2]);
+  });
+
   it("ignores non-closing references", () => {
     assert.deepEqual(
       extractLinkedIssueNumbers("Refs #12", "Related to #8"),
