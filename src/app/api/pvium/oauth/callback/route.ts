@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { createIssueComment } from "@/lib/github/client";
 import { invoiceCreatedMessage } from "@/lib/github/messages";
+import { normalizeGithubLogin } from "@/lib/github/login";
 import { getEnv } from "@/lib/config/env";
 import {
   createRewardInvoice,
@@ -169,11 +170,6 @@ export async function GET(request: NextRequest) {
   });
 
   return NextResponse.redirect(invoice.url || env.APP_BASE_URL);
-}
-
-function normalizeGithubLogin(value?: string | null) {
-  const normalized = value?.trim().toLowerCase().replace(/^@/, "");
-  return normalized || undefined;
 }
 
 function getGithubLoginFromPviumUser(user: {

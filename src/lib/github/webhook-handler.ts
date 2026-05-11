@@ -7,6 +7,7 @@ import {
   invoiceCreatedMessage,
 } from "@/lib/github/messages";
 import { extractLinkedIssueNumbers } from "@/lib/github/linked-issues";
+import { normalizeGithubLogin } from "@/lib/github/login";
 import {
   createGithubInviteLink,
   createRewardInvoice,
@@ -160,10 +161,24 @@ async function processRewardForBounty(params: {
 }) {
   const solverLogin = params.pullRequest.user.login;
   const solverGithubUserId = params.pullRequest.user.id;
+  const normalizedSolverLogin = normalizeGithubLogin(solverLogin);
 
   const githubUserLink = await prisma.githubUserLink.findFirst({
     where: {
-      OR: [{ githubLogin: solverLogin }, { githubUserId: solverGithubUserId }],
+      OR: [
+        { githubLogin: solverLogin },
+        ...(normalizedSolverLogin
+          ? [
+              {
+                githubLogin: {
+                  equals: normalizedSolverLogin,
+                  mode: "insensitive" as const,
+                },
+              },
+            ]
+          : []),
+        { githubUserId: solverGithubUserId },
+      ],
     },
   });
 

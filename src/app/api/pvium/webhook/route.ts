@@ -6,6 +6,7 @@ import {
   invoiceCreatedMessage,
   invoicePaidMessage,
 } from "@/lib/github/messages";
+import { normalizeGithubLogin } from "@/lib/github/login";
 import {
   createRewardInvoice,
   getPviumAccessTokenExpiresAt,
@@ -133,7 +134,7 @@ function safeEqual(a: string, b: string) {
 async function handleInviteAccepted(data: Record<string, unknown>) {
   const user = recordFrom(data.user);
   const authorization = recordFrom(data.authorization);
-  const githubLogin = stringFrom(
+  const githubLogin = normalizeGithubLogin(
     data.githubLogin ?? data.github_login ?? user?.githubLogin,
   );
   const accessToken = stringFrom(data.accessToken ?? data.access_token);
@@ -221,7 +222,10 @@ async function createPendingInvoicesForGithubUser(params: {
 }) {
   const pendingRewards = await prisma.rewardAttempt.findMany({
     where: {
-      solverGithubLogin: params.githubLogin,
+      solverGithubLogin: {
+        equals: params.githubLogin,
+        mode: "insensitive",
+      },
       status: "WAITING_FOR_ACCEPTANCE",
     },
     include: {

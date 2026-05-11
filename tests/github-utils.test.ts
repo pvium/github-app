@@ -9,6 +9,7 @@ import {
   inviteRequiredMessage,
   invoiceCreatedMessage,
 } from "../src/lib/github/messages.ts";
+import { normalizeGithubLogin } from "../src/lib/github/login.ts";
 
 describe("parseBountyLabel", () => {
   it("parses explicit currency labels", () => {
@@ -99,5 +100,13 @@ describe("GitHub messages", () => {
       body,
       /\[Pay reward\]\(https:\/\/pvium\.test\/invoice\/123\)/,
     );
+  });
+});
+
+describe("normalizeGithubLogin", () => {
+  it("normalizes GitHub logins from OAuth and webhook payloads", () => {
+    assert.equal(normalizeGithubLogin("@NoeFabris "), "noefabris");
+    assert.equal(normalizeGithubLogin(" octoCAT"), "octocat");
+    assert.equal(normalizeGithubLogin(" "), undefined);
   });
 });
