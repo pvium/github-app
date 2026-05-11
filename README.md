@@ -53,6 +53,9 @@ GITHUB_WEBHOOK_SECRET=""
 GITHUB_REWARD_TARGET_BRANCHES="main,master"
 
 PVIUM_ENVIRONMENT="sandbox"
+PVIUM_API_BASE_URL=""
+PVIUM_CONSENT_HOST=""
+PVIUM_SDK_LOG_REQUESTS="false"
 PVIUM_API_KEY=""
 PVIUM_CLIENT_ID=""
 PVIUM_WEBHOOK_SECRET=""
@@ -94,7 +97,7 @@ https://<your-host>/api/github/webhook
 Set these GitHub App repository permissions:
 
 - Issues: read and write
-- Pull requests: read-only
+- Pull requests: read and write
 - Metadata: read-only
 
 Subscribe the GitHub App to:
@@ -115,6 +118,13 @@ https://<your-host>/api/pvium/webhook
 Set `PVIUM_WEBHOOK_SECRET` to the same webhook secret configured on the Pvium
 client app. Pvium posts `{ event, token }`; the app verifies the signed JWT and
 uses the token payload to detect invite acceptance and payment completion.
+
+`PVIUM_ENVIRONMENT` resolves Pvium hosts as follows: `test` uses
+`http://localhost:4005/v1`, `sandbox` uses `https://api-sandbox.pvium.com/v1`,
+and `production` uses `https://api.pvium.com/v1`. Set `PVIUM_API_BASE_URL` or
+`PVIUM_CONSENT_HOST` only when you need to override those defaults.
+Set `PVIUM_SDK_LOG_REQUESTS=true` to log SDK request method, host, path,
+status, duration, and network errors without logging full URLs or secrets.
 
 `PVIUM_REWARD_PAYMENT_MODEL` controls the payment artifact. Set it to
 `instant-batch` to create a finalized instant batch payment link. Set it to

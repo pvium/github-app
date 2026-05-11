@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { getEnv } from "@/lib/config/env";
+import { serializeError } from "@/lib/errors";
 import { parseBountyLabel } from "@/lib/github/bounty-label";
 import { createIssueComment } from "@/lib/github/client";
 import {
@@ -302,10 +303,27 @@ async function processRewardForBounty(params: {
   });
 
   if (!savedAccessToken) {
-    const inviteLink = await createGithubInviteLink({
-      githubLogin: solverLogin,
-      rewardAttemptId: reward.id,
-    });
+    let inviteLink: string;
+    try {
+      inviteLink = await createGithubInviteLink({
+        githubLogin: solverLogin,
+        rewardAttemptId: reward.id,
+      });
+    } catch (error) {
+      const serializedError = serializeError(error);
+      console.error("[github-webhook] failed to create Pvium invite link", {
+        repository: `${params.repository.owner}/${params.repository.repo}`,
+        issueNumber: params.bounty.issueNumber,
+        pullRequestNumber: params.pullRequest.number,
+        solverLogin,
+        rewardAttemptId: reward.id,
+        error: serializedError,
+        errorJson: JSON.stringify(serializedError),
+      });
+
+      throw error;
+    }
+
     await prisma.rewardAttempt.update({
       where: { id: reward.id },
       data: {
@@ -338,14 +356,30 @@ async function processRewardForBounty(params: {
     return;
   }
 
-  const invoice = await createRewardInvoice({
-    amount: Number(params.bounty.amount),
-    currency: params.bounty.currency,
-    title: `Pvium GitHub reward for ${params.repository.owner}/${params.repository.repo}#${params.pullRequest.number}`,
-    description: `Reward for @${solverLogin} after merged PR #${params.pullRequest.number}.`,
-    githubLogin: solverLogin,
-    accessToken: savedAccessToken,
-  });
+  let invoice: Awaited<ReturnType<typeof createRewardInvoice>>;
+  try {
+    invoice = await createRewardInvoice({
+      amount: Number(params.bounty.amount),
+      currency: params.bounty.currency,
+      title: `Pvium GitHub reward for ${params.repository.owner}/${params.repository.repo}#${params.pullRequest.number}`,
+      description: `Reward for @${solverLogin} after merged PR #${params.pullRequest.number}.`,
+      githubLogin: solverLogin,
+      accessToken: savedAccessToken,
+    });
+  } catch (error) {
+    const serializedError = serializeError(error);
+    console.error("[github-webhook] failed to create Pvium payment link", {
+      repository: `${params.repository.owner}/${params.repository.repo}`,
+      issueNumber: params.bounty.issueNumber,
+      pullRequestNumber: params.pullRequest.number,
+      solverLogin,
+      rewardAttemptId: reward.id,
+      error: serializedError,
+      errorJson: JSON.stringify(serializedError),
+    });
+
+    throw error;
+  }
 
   await prisma.rewardAttempt.update({
     where: { id: reward.id },

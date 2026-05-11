@@ -4,6 +4,11 @@ const optionalNonEmptyString = z.preprocess(
   (value) => (value === "" ? undefined : value),
   z.string().min(1).optional(),
 );
+const optionalBoolean = z.preprocess((value) => {
+  if (value === "" || value === undefined) return undefined;
+  if (typeof value === "string") return ["1", "true", "yes", "on"].includes(value.toLowerCase());
+  return value;
+}, z.boolean().optional());
 
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
@@ -11,7 +16,10 @@ const envSchema = z.object({
   GITHUB_APP_PRIVATE_KEY: z.string().min(1),
   GITHUB_WEBHOOK_SECRET: z.string().min(1),
   GITHUB_REWARD_TARGET_BRANCHES: z.string().default("main,master"),
-  PVIUM_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
+  PVIUM_ENVIRONMENT: z.enum(["test", "sandbox", "production"]).default("sandbox"),
+  PVIUM_API_BASE_URL: optionalNonEmptyString,
+  PVIUM_CONSENT_HOST: optionalNonEmptyString,
+  PVIUM_SDK_LOG_REQUESTS: optionalBoolean.default(false),
   PVIUM_API_KEY: z.string().min(1),
   PVIUM_CLIENT_ID: z.string().min(1),
   PVIUM_WEBHOOK_SECRET: optionalNonEmptyString,
