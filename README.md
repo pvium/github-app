@@ -17,6 +17,9 @@ maintainer can open and pay.
 
 ## Local Setup
 
+Use Node.js 22 or newer. The test runner relies on Node's native TypeScript
+transform flags, which are not available in older LTS releases.
+
 This app uses the local Pvium SDK at:
 
 ```text
