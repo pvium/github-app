@@ -43,7 +43,13 @@ const envSchema = z.object({
     .nonnegative()
     .default(6),
   PVIUM_REWARD_PLATFORM_FEE_WALLET: optionalNonEmptyString,
-  PVIUM_REWARD_PLATFORM_FEE_AMOUNT: z.coerce.number().nonnegative().default(0),
+  PVIUM_REWARD_PLATFORM_FEE_BASIS_POINTS: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(10000)
+    .default(0),
+  PVIUM_REWARD_MAX_FEE_AMOUNT: z.coerce.number().nonnegative().default(0),
   PVIUM_INVOICE_REDIRECT_URI: z.string().url(),
   APP_BASE_URL: z.string().url(),
 });

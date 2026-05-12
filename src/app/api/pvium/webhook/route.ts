@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { verifyPviumWebhookToken } from '@pvium/sdk';
 import { prisma } from "@/lib/db/prisma";
 import { createIssueComment } from "@/lib/github/client";
 import {
@@ -18,22 +18,64 @@ type PviumWebhookPayload = {
   data?: Record<string, unknown>;
 };
 
-type PviumSignedWebhookToken = {
-  event?: string;
-  data?: Record<string, unknown>;
-};
-
 export async function POST(request: NextRequest) {
-  const body = (await request.json()) as PviumWebhookPayload;
+  const requestId = crypto.randomUUID();
+
+  console.log('[pvium-webhook] received', {
+    requestId,
+    contentType: request.headers.get('content-type'),
+    userAgent: request.headers.get('user-agent'),
+    forwardedFor: request.headers.get('x-forwarded-for'),
+  });
+
+  let body: PviumWebhookPayload;
+  try {
+    body = (await request.json()) as PviumWebhookPayload;
+  } catch (error) {
+    console.error('[pvium-webhook] invalid JSON body', {
+      requestId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    return NextResponse.json(
+      { error: 'Invalid Pvium webhook JSON body' },
+      { status: 400 },
+    );
+  }
+
+  console.log('[pvium-webhook] parsed body', {
+    requestId,
+    event: body.event,
+    type: body.type,
+    hasToken: Boolean(body.token),
+    tokenSummary: summarizeToken(body.token),
+    dataKeys: keysOf(body.data),
+  });
+
   const resolved = verifyAndResolveWebhookPayload(body);
 
   if (!resolved.ok) {
+    console.error('[pvium-webhook] verification failed', {
+      requestId,
+      event: body.event,
+      type: body.type,
+      hasToken: Boolean(body.token),
+      error: resolved.error,
+    });
+
     return NextResponse.json({ error: resolved.error }, { status: 401 });
   }
 
   const { event, data } = resolved;
 
+  console.log('[pvium-webhook] verification passed', {
+    requestId,
+    event,
+    dataKeys: keysOf(data),
+  });
+
   if (event === "oauth.invite.accepted") {
+    console.log('[pvium-webhook] handling invite accepted', { requestId });
     return handleInviteAccepted(data);
   }
 
@@ -45,9 +87,14 @@ export async function POST(request: NextRequest) {
     event === "batch.payment_completed" ||
     event === "batch.payment.succeeded"
   ) {
+    console.log('[pvium-webhook] handling reward payment paid', {
+      requestId,
+      event,
+    });
     return handleRewardPaymentPaid(data);
   }
 
+  console.log('[pvium-webhook] ignored event', { requestId, event });
   return NextResponse.json({ ok: true, ignored: true });
 }
 
@@ -57,6 +104,12 @@ function verifyAndResolveWebhookPayload(
   | { ok: true; event: string | undefined; data: Record<string, unknown> }
   | { ok: false; error: string } {
   if (!body.token) {
+    console.log('[pvium-webhook] unsigned payload', {
+      event: body.event,
+      type: body.type,
+      dataKeys: keysOf(body.data),
+    });
+
     return {
       ok: true,
       event: body.event ?? body.type,
@@ -66,68 +119,45 @@ function verifyAndResolveWebhookPayload(
 
   const secret = process.env.PVIUM_WEBHOOK_SECRET;
   if (!secret) {
+    console.error('[pvium-webhook] missing PVIUM_WEBHOOK_SECRET');
     return { ok: false, error: "Pvium webhook secret is not configured" };
   }
 
-  const decoded = verifyWebhookToken(body.token, secret);
-  if (!decoded) {
-    return { ok: false, error: "Invalid Pvium webhook token" };
-  }
-
-  const event = decoded.event ?? body.event ?? body.type;
-  if (body.event && decoded.event && body.event !== decoded.event) {
-    return { ok: false, error: "Pvium webhook event mismatch" };
-  }
-
-  return {
-    ok: true,
-    event,
-    data: decoded.data ?? {},
-  };
-}
-
-function verifyWebhookToken(
-  token: string,
-  secret: string,
-): PviumSignedWebhookToken | null {
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-
-  const [encodedHeader, encodedPayload, encodedSignature] = parts;
-  const header = parseBase64UrlJson(encodedHeader);
-  if (!header || header.alg !== "HS256") return null;
-
-  const expectedSignature = createHmac("sha256", secret)
-    .update(`${encodedHeader}.${encodedPayload}`)
-    .digest("base64url");
-
-  if (!safeEqual(encodedSignature, expectedSignature)) return null;
-
-  const payload = parseBase64UrlJson(encodedPayload);
-  if (!payload) return null;
-
-  if (
-    typeof payload.exp === "number" &&
-    Math.floor(Date.now() / 1000) >= payload.exp
-  ) {
-    return null;
-  }
-
-  return payload as PviumSignedWebhookToken;
-}
-
-function parseBase64UrlJson(value: string): Record<string, unknown> | null {
   try {
-    return JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
-  } catch {
-    return null;
-  }
-}
+    const tokenPayload = verifyPviumWebhookToken<Record<string, unknown>>(
+      body.token,
+      secret,
+      {
+        expectedEvent: body.event,
+      },
+    );
 
-function safeEqual(a: string, b: string) {
-  const aBuffer = Buffer.from(a);
-  const bBuffer = Buffer.from(b);
-  return aBuffer.length === bBuffer.length && timingSafeEqual(aBuffer, bBuffer);
+    console.log('[pvium-webhook] token verified', {
+      bodyEvent: body.event,
+      bodyType: body.type,
+      tokenEvent: tokenPayload.event,
+      tokenExp: tokenPayload.exp,
+      tokenDataKeys: keysOf(tokenPayload.data),
+    });
+
+    return {
+      ok: true,
+      event: tokenPayload.event ?? body.event ?? body.type,
+      data: tokenPayload.data ?? {},
+    };
+  } catch (error) {
+    console.error('[pvium-webhook] token verification error', {
+      bodyEvent: body.event,
+      bodyType: body.type,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : 'Invalid Pvium webhook token',
+    };
+  }
 }
 
 async function handleInviteAccepted(data: Record<string, unknown>) {
@@ -144,23 +174,47 @@ async function handleInviteAccepted(data: Record<string, unknown>) {
   const expiresIn = numberFrom(
     data.expiresIn ?? data.expires_in ?? authorization?.expiresIn,
   );
+  const expiresAt = dateLikeFrom(
+    data.expiresAt ?? data.expires_at ?? authorization?.expiresAt,
+  );
   const pviumUserId = stringFrom(
     data.pviumUserId ?? data.pvium_user_id ?? user?.id,
   );
   const pviumUser = user || undefined;
 
   if (!githubLogin) {
+    console.error('[pvium-webhook] invite accepted missing GitHub login', {
+      dataKeys: keysOf(data),
+      userKeys: keysOf(user),
+    });
+
     return NextResponse.json(
       { error: "Missing GitHub login in Pvium webhook payload" },
       { status: 400 },
     );
   }
   if (!pviumUserId) {
+    console.error('[pvium-webhook] invite accepted missing Pvium user id', {
+      githubLogin,
+      dataKeys: keysOf(data),
+      userKeys: keysOf(user),
+    });
+
     return NextResponse.json(
       { error: "Missing Pvium user id in Pvium webhook payload" },
       { status: 400 },
     );
   }
+
+  console.log('[pvium-webhook] upserting GitHub user link', {
+    githubLogin,
+    pviumUserId,
+    hasAccessToken: Boolean(accessToken),
+    hasRefreshToken: Boolean(refreshToken),
+    expiresIn,
+    expiresAt,
+  });
+  
 
   const link = await prisma.githubUserLink.upsert({
     where: { githubLogin },
@@ -177,7 +231,10 @@ async function handleInviteAccepted(data: Record<string, unknown>) {
             pviumAccessToken: accessToken,
             pviumRefreshToken: refreshToken,
             pviumTokenType: tokenType,
-            pviumAccessTokenExpiresAt: getPviumAccessTokenExpiresAt(expiresIn),
+            pviumAccessTokenExpiresAt: getPviumAccessTokenExpiresAt({
+              expiresIn,
+              expiresAt,
+            }),
           }
         : {}),
     },
@@ -193,7 +250,10 @@ async function handleInviteAccepted(data: Record<string, unknown>) {
       pviumAccessToken: accessToken,
       pviumRefreshToken: refreshToken,
       pviumTokenType: tokenType,
-      pviumAccessTokenExpiresAt: getPviumAccessTokenExpiresAt(expiresIn),
+      pviumAccessTokenExpiresAt: getPviumAccessTokenExpiresAt({
+        expiresIn,
+        expiresAt,
+      }),
     },
   });
 
@@ -205,6 +265,12 @@ async function handleInviteAccepted(data: Record<string, unknown>) {
           pviumUser,
         })
     : 0;
+
+  console.log('[pvium-webhook] invite accepted processed', {
+    githubLogin,
+    githubUserLinkId: link.id,
+    processedRewards,
+  });
 
   return NextResponse.json({
     ok: true,
@@ -233,7 +299,22 @@ async function createPendingInvoicesForGithubUser(params: {
     },
   });
 
+  console.log('[pvium-webhook] pending rewards found', {
+    githubLogin: params.githubLogin,
+    count: pendingRewards.length,
+  });
+
   for (const reward of pendingRewards) {
+    console.log('[pvium-webhook] creating payment link for pending reward', {
+      rewardAttemptId: reward.id,
+      bountyId: reward.bountyId,
+      githubLogin: params.githubLogin,
+      amount: reward.bounty.amount.toString(),
+      currency: reward.bounty.currency,
+      repository: `${reward.bounty.repository.owner}/${reward.bounty.repository.repo}`,
+      pullRequestNumber: reward.pullRequestNumber,
+    });
+
     const invoice = await createRewardInvoice({
       amount: Number(reward.bounty.amount),
       currency: reward.bounty.currency,
@@ -243,6 +324,7 @@ async function createPendingInvoicesForGithubUser(params: {
       accessToken: params.accessToken,
       pviumUser: params.pviumUser,
     });
+    console.log('[pvium-webhook] payment link created', params.pviumUser);
 
     await prisma.rewardAttempt.update({
       where: { id: reward.id },
@@ -271,6 +353,12 @@ async function createPendingInvoicesForGithubUser(params: {
         amount: reward.bounty.amount.toString(),
         currency: reward.bounty.currency,
       }),
+    });
+
+    console.log('[pvium-webhook] pending reward updated', {
+      rewardAttemptId: reward.id,
+      invoiceId: invoice.id,
+      hasInvoiceUrl: Boolean(invoice.url),
     });
   }
 
@@ -304,11 +392,22 @@ async function handleRewardPaymentPaid(data: Record<string, unknown>) {
   );
 
   if (!invoiceId && !invoiceCode) {
+    console.error('[pvium-webhook] payment webhook missing id/code', {
+      dataKeys: keysOf(data),
+      invoiceKeys: keysOf(invoice),
+      batchKeys: keysOf(batch),
+    });
+
     return NextResponse.json(
       { error: "Missing payment id or code in Pvium webhook payload" },
       { status: 400 },
     );
   }
+
+  console.log('[pvium-webhook] looking up reward payment', {
+    invoiceId,
+    invoiceCode,
+  });
 
   const reward = await prisma.rewardAttempt.findFirst({
     where: {
@@ -328,8 +427,20 @@ async function handleRewardPaymentPaid(data: Record<string, unknown>) {
   });
 
   if (!reward) {
+    console.log('[pvium-webhook] no matching reward payment found', {
+      invoiceId,
+      invoiceCode,
+    });
+
     return NextResponse.json({ ok: true, ignored: true });
   }
+
+  console.log('[pvium-webhook] marking reward paid', {
+    rewardAttemptId: reward.id,
+    bountyId: reward.bountyId,
+    invoiceId,
+    invoiceCode,
+  });
 
   await prisma.rewardAttempt.update({
     where: { id: reward.id },
@@ -356,8 +467,30 @@ async function handleRewardPaymentPaid(data: Record<string, unknown>) {
   return NextResponse.json({ ok: true, paidReward: reward.id });
 }
 
+function summarizeToken(token: string | undefined) {
+  if (!token) return undefined;
+  const parts = token.split('.');
+  return {
+    parts: parts.length,
+    length: token.length,
+    prefix: token.slice(0, 12),
+    suffix: token.slice(-8),
+  };
+}
+
+function keysOf(value: unknown) {
+  return value && typeof value === 'object' ? Object.keys(value) : [];
+}
+
 function stringFrom(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function dateLikeFrom(value: unknown) {
+  if (value instanceof Date) return value;
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  return undefined;
 }
 
 function bigintFrom(value: unknown) {

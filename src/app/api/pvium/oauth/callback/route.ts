@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
       pviumRefreshToken: tokenResponse.data.refreshToken,
       pviumTokenType: tokenResponse.data.tokenType,
       pviumAccessTokenExpiresAt: getPviumAccessTokenExpiresAt(
-        tokenResponse.data.expiresIn,
+        tokenResponse.data,
       ),
     },
     create: {
@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
       pviumRefreshToken: tokenResponse.data.refreshToken,
       pviumTokenType: tokenResponse.data.tokenType,
       pviumAccessTokenExpiresAt: getPviumAccessTokenExpiresAt(
-        tokenResponse.data.expiresIn,
+        tokenResponse.data,
       ),
     },
   });

@@ -653,10 +653,8 @@
   dependencies:
     "@prisma/debug" "6.19.3"
 
-"@pvium/sdk@^0.2.2":
+"@pvium/sdk@file:../sdks/node":
   version "0.2.2"
-  resolved "https://registry.yarnpkg.com/@pvium/sdk/-/sdk-0.2.2.tgz#ad8c6a7337117d07fe470e65b7d393eec5e71335"
-  integrity sha512-Wmrigpg5tjpGT+/Pq0W41xm7bpy/VAqYIyurqgXyHVmVNzQyS1SWIKlPveOfTaHCf0KDgPWussB6ppQlq1EAkA==
   dependencies:
     crypto-js "^4.2.0"
     ethers "^6.16.0"
