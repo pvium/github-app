@@ -429,7 +429,7 @@ async function getUsablePviumAccessToken(githubUserLink: {
 
   const refreshBufferMs = 60_000;
   const expiresAt = githubUserLink.pviumAccessTokenExpiresAt?.getTime();
-  if (!expiresAt || expiresAt - refreshBufferMs > Date.now()) {
+  if (expiresAt && expiresAt - refreshBufferMs > Date.now()) {
     return githubUserLink.pviumAccessToken;
   }
 
@@ -450,9 +450,7 @@ async function getUsablePviumAccessToken(githubUserLink: {
       pviumRefreshToken:
         refreshed.data.refreshToken ?? githubUserLink.pviumRefreshToken,
       pviumTokenType: refreshed.data.tokenType,
-      pviumAccessTokenExpiresAt: getPviumAccessTokenExpiresAt(
-        refreshed.data.expiresIn,
-      ),
+      pviumAccessTokenExpiresAt: getPviumAccessTokenExpiresAt(refreshed.data),
     },
   });
 

@@ -69,8 +69,9 @@ PVIUM_REWARD_PAYMENT_CURRENCY="USDC"
 PVIUM_REWARD_PAYMENT_TOKEN_ADDRESS=""
 PVIUM_REWARD_PAYMENT_TOKEN_DECIMALS="6"
 PVIUM_REWARD_PLATFORM_FEE_WALLET=""
-PVIUM_REWARD_PLATFORM_FEE_AMOUNT="0"
-PVIUM_INVOICE_REDIRECT_URI="https://github.com"
+PVIUM_REWARD_PLATFORM_FEE_BASIS_POINTS="0"
+PVIUM_REWARD_MAX_FEE_AMOUNT="0"
+PVIUM_INVOICE_REDIRECT_URI="http://localhost:3000/api/pvium/oauth/callback""
 
 APP_BASE_URL="http://localhost:3000"
 ```
@@ -135,8 +136,14 @@ status, duration, and network errors without logging full URLs or secrets.
 - `PVIUM_REWARD_PAYMENT_SIGNER_PRIVATE_KEY`: private key used to sign instant batches. If omitted, the invite signer is used.
 - `PVIUM_REWARD_PAYMENT_CHAIN_ID`: chain id used to finalize instant batches.
 - `PVIUM_REWARD_PAYMENT_TOKEN_ADDRESS` and `PVIUM_REWARD_PAYMENT_TOKEN_DECIMALS`: instant batch payout token used for both reward and platform fee rows.
-- `PVIUM_REWARD_PLATFORM_FEE_WALLET`: wallet that receives the platform fee.
-- `PVIUM_REWARD_PLATFORM_FEE_AMOUNT`: fixed platform fee amount. When greater than zero, the batch includes a second payee with memo `platform-fee`.
+- `PVIUM_REWARD_PLATFORM_FEE_WALLET`: wallet that receives the platform fee. If omitted, no platform fee payee is added.
+- `PVIUM_REWARD_PLATFORM_FEE_BASIS_POINTS`: platform fee basis points. For example, `100` is 1% and `250` is 2.5%.
+- `PVIUM_REWARD_MAX_FEE_AMOUNT`: optional absolute token amount cap for the computed platform fee. Use `0` for no cap.
+
+When `PVIUM_REWARD_PLATFORM_FEE_WALLET` is set and
+`PVIUM_REWARD_PLATFORM_FEE_BASIS_POINTS` is greater than zero, instant batches include
+the platform fee as the first payee with memo `platform fee`. The contributor
+reward amount is not reduced by the fee.
 
 Register the Pvium OAuth redirect URI on the client app:
 

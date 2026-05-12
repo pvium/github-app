@@ -20,12 +20,12 @@ export function inviteRequiredMessage(params: {
 }) {
   return [
     `@${params.githubLogin}, this PR is eligible for a Pvium reward of **${params.amount} ${params.currency}**.`,
-    "",
-    "Connect your GitHub account to Pvium to claim it:",
-    params.inviteLink,
-    "",
-    "After the invite is accepted, Pvium will create the payment link for the repository owner to pay.",
-  ].join("\n");
+    '',
+    'Connect your GitHub account to Pvium to claim it:',
+    `[CONNECT PVIUM ACCOUNT](${params.inviteLink})`,
+    '',
+    'After the invite is accepted, Pvium will create the payment link for the repository owner to pay.',
+  ].join('\n');
 }
 
 export function invoiceCreatedMessage(params: {
@@ -36,11 +36,11 @@ export function invoiceCreatedMessage(params: {
 }) {
   return [
     `Pvium reward payment link created for @${params.githubLogin}.`,
-    "",
+    '',
     `Amount: **${params.amount} ${params.currency}**`,
-    "",
-    `[Pay reward](${params.invoiceUrl})`,
-  ].join("\n");
+    '',
+    `[PAY REWARD](${params.invoiceUrl})`,
+  ].join('\n');
 }
 
 export function invoicePaidMessage(params: {

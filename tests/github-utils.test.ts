@@ -98,7 +98,7 @@ describe("GitHub messages", () => {
 
     assert.match(
       body,
-      /\[Pay reward\]\(https:\/\/pvium\.test\/invoice\/123\)/,
+      /\[PAY REWARD\]\(https:\/\/pvium\.test\/invoice\/123\)/,
     );
   });
 });
