@@ -49,3 +49,36 @@ export async function createIssueComment(params: {
     throw error;
   }
 }
+
+export async function closeIssue(params: {
+  installationId: number | bigint;
+  owner: string;
+  repo: string;
+  issueNumber: number;
+}) {
+  const octokit = await getInstallationOctokit(params.installationId);
+  try {
+    return await octokit.request(
+      "PATCH /repos/{owner}/{repo}/issues/{issue_number}",
+      {
+        owner: params.owner,
+        repo: params.repo,
+        issue_number: params.issueNumber,
+        state: "closed",
+        state_reason: "completed",
+      },
+    );
+  } catch (error) {
+    const serializedError = serializeError(error);
+    console.error("[github] failed to close issue", {
+      owner: params.owner,
+      repo: params.repo,
+      issueNumber: params.issueNumber,
+      installationId: params.installationId.toString(),
+      error: serializedError,
+      errorJson: JSON.stringify(serializedError),
+    });
+
+    throw error;
+  }
+}

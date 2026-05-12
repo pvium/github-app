@@ -20,12 +20,12 @@ export function inviteRequiredMessage(params: {
 }) {
   return [
     `@${params.githubLogin}, this PR is eligible for a Pvium reward of **${params.amount} ${params.currency}**.`,
-    '',
-    'Connect your GitHub account to Pvium to claim it:',
+    "",
+    "Connect your GitHub account to Pvium to claim it:",
     `[CONNECT PVIUM ACCOUNT](${params.inviteLink})`,
-    '',
-    'After the invite is accepted, Pvium will create the payment link for the repository owner to pay.',
-  ].join('\n');
+    "",
+    "After the invite is accepted, Pvium will create the payment link for the repository owner to pay.",
+  ].join("\n");
 }
 
 export function invoiceCreatedMessage(params: {
@@ -36,21 +36,38 @@ export function invoiceCreatedMessage(params: {
 }) {
   return [
     `Pvium reward payment link created for @${params.githubLogin}.`,
-    '',
+    "",
     `Amount: **${params.amount} ${params.currency}**`,
-    '',
+    "",
     `[PAY REWARD](${params.invoiceUrl})`,
-  ].join('\n');
+  ].join("\n");
 }
 
 export function invoicePaidMessage(params: {
   githubLogin: string;
   amount: string | number;
   currency: string;
+  transactionHash?: string;
+  transactionUrl?: string;
 }) {
-  return [
+  const lines = [
     `Pvium reward payment completed for @${params.githubLogin}.`,
     "",
     `Amount: **${params.amount} ${params.currency}**`,
-  ].join("\n");
+  ];
+
+  if (params.transactionHash) {
+    lines.push(
+      "",
+      params.transactionUrl
+        ? `Transaction: [${shortHash(params.transactionHash)}](${params.transactionUrl})`
+        : `Transaction: ${params.transactionHash}`,
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function shortHash(hash: string) {
+  return hash.length > 18 ? `${hash.slice(0, 10)}...${hash.slice(-8)}` : hash;
 }
