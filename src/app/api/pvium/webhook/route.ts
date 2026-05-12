@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPviumWebhookToken } from '@pvium/sdk';
 import { prisma } from "@/lib/db/prisma";
-import { createIssueComment } from "@/lib/github/client";
+import { closeIssue, createIssueComment } from '@/lib/github/client';
 import {
   invoiceCreatedMessage,
   invoicePaidMessage,
@@ -80,12 +80,13 @@ export async function POST(request: NextRequest) {
   }
 
   if (
-    event === "invoice.paid" ||
-    event === "invoice.payment_completed" ||
-    event === "invoice.payment.succeeded" ||
-    event === "batch.funded" ||
-    event === "batch.payment_completed" ||
-    event === "batch.payment.succeeded"
+    event === 'invoice.paid' ||
+    event === 'invoice.payment_completed' ||
+    event === 'invoice.payment.succeeded' ||
+    event === 'payment.attached' ||
+    event === 'batch.funded' ||
+    event === 'batch.payment_completed' ||
+    event === 'batch.payment.succeeded'
   ) {
     console.log('[pvium-webhook] handling reward payment paid', {
       requestId,
@@ -214,7 +215,6 @@ async function handleInviteAccepted(data: Record<string, unknown>) {
     expiresIn,
     expiresAt,
   });
-  
 
   const link = await prisma.githubUserLink.upsert({
     where: { githubLogin },
@@ -258,12 +258,12 @@ async function handleInviteAccepted(data: Record<string, unknown>) {
   });
 
   const processedRewards = accessToken
-      ? await createPendingInvoicesForGithubUser({
-          githubLogin,
-          accessToken,
-          githubUserLinkId: link.id,
-          pviumUser,
-        })
+    ? await createPendingInvoicesForGithubUser({
+        githubLogin,
+        accessToken,
+        githubUserLinkId: link.id,
+        pviumUser,
+      })
     : 0;
 
   console.log('[pvium-webhook] invite accepted processed', {
@@ -366,21 +366,29 @@ async function createPendingInvoicesForGithubUser(params: {
 }
 
 async function handleRewardPaymentPaid(data: Record<string, unknown>) {
-  const invoice = recordFrom(data.invoice);
+  const invoice = recordFrom(data.invoice || data.contract);
+  const payment = recordFrom(data.payment);
   const batch = recordFrom(data.batch ?? data.payout);
-  const invoiceId = stringFrom(
-    data.id ??
-      data.invoiceId ??
-      data.invoice_id ??
-      data.batchId ??
-      data.batch_id ??
-      data.payoutId ??
-      data.payout_id ??
-      invoice?.id ??
-      invoice?._id ??
-      batch?.id ??
-      batch?._id,
-  );
+  const funding = recordFrom(data.funding);
+  const invoiceIds = uniqueStrings([
+    data.invoiceId,
+    data.invoice_id,
+    data.batchId,
+    data.batch_id,
+    data.payoutId,
+    data.payout_id,
+    invoice?.id,
+    invoice?._id,
+    payment?.invoiceId,
+    payment?.invoice_id,
+    payment?.invoice,
+    batch?.id,
+    batch?._id,
+    data.contract,
+    data.id,
+  ]);
+
+  const invoiceId = invoiceIds[0];
   const invoiceCode = stringFrom(
     data.code ??
       data.invoiceCode ??
@@ -390,32 +398,54 @@ async function handleRewardPaymentPaid(data: Record<string, unknown>) {
       invoice?.code ??
       batch?.code,
   );
+  const chain = stringFrom(data.chain ?? batch?.chain ?? payment?.chain);
+  const transactionHash = stringFrom(
+    data.transactionHash ||
+      data.transaction_hash ||
+      funding?.transactionHash ||
+      funding?.transaction_hash ||
+      payment?.transactionHash ||
+      payment?.transaction_hash ||
+      batch?.batchTransactionHash ||
+      batch?.batch_transaction_hash,
+  );
+
+  const transactionUrl =
+    transactionHash && chain
+      ? getTransactionExplorerUrl(chain, transactionHash)
+      : undefined;
 
   if (!invoiceId && !invoiceCode) {
     console.error('[pvium-webhook] payment webhook missing id/code', {
       dataKeys: keysOf(data),
       invoiceKeys: keysOf(invoice),
+      paymentKeys: keysOf(payment),
       batchKeys: keysOf(batch),
+      fundingKeys: keysOf(funding),
     });
 
     return NextResponse.json(
-      { error: "Missing payment id or code in Pvium webhook payload" },
+      { error: 'Missing payment id or code in Pvium webhook payload' },
       { status: 400 },
     );
   }
 
   console.log('[pvium-webhook] looking up reward payment', {
     invoiceId,
+    invoiceIds,
     invoiceCode,
+    chain,
+    transactionHash,
+    transactionUrl,
   });
 
-  const reward = await prisma.rewardAttempt.findFirst({
+  const rewards = await prisma.rewardAttempt.findMany({
     where: {
       OR: [
-        ...(invoiceId ? [{ pviumInvoiceId: invoiceId }] : []),
+        ...invoiceIds.map((id) => ({ pviumInvoiceId: id })),
         ...(invoiceCode ? [{ pviumInvoiceId: invoiceCode }] : []),
       ],
-      status: "INVOICE_CREATED",
+      status: 'INVOICE_CREATED',
     },
     include: {
       bounty: {
@@ -426,45 +456,99 @@ async function handleRewardPaymentPaid(data: Record<string, unknown>) {
     },
   });
 
-  if (!reward) {
+  if (rewards.length === 0) {
     console.log('[pvium-webhook] no matching reward payment found', {
       invoiceId,
+      invoiceIds,
       invoiceCode,
+      chain,
+      transactionHash,
     });
 
     return NextResponse.json({ ok: true, ignored: true });
   }
 
-  console.log('[pvium-webhook] marking reward paid', {
-    rewardAttemptId: reward.id,
-    bountyId: reward.bountyId,
-    invoiceId,
-    invoiceCode,
-  });
+  const paidRewardIds: string[] = [];
 
-  await prisma.rewardAttempt.update({
-    where: { id: reward.id },
-    data: { status: "PAID" },
-  });
+  for (const reward of rewards) {
+    console.log('[pvium-webhook] marking reward paid', {
+      rewardAttemptId: reward.id,
+      bountyId: reward.bountyId,
+      invoiceId,
+      invoiceIds,
+      invoiceCode,
+      chain,
+      transactionHash,
+    });
 
-  await prisma.bounty.update({
-    where: { id: reward.bountyId },
-    data: { status: "PAID" },
-  });
+    await prisma.rewardAttempt.update({
+      where: { id: reward.id },
+      data: { status: 'PAID' },
+    });
 
-  await createIssueComment({
-    installationId: reward.bounty.repository.installationId,
-    owner: reward.bounty.repository.owner,
-    repo: reward.bounty.repository.repo,
-    issueNumber: reward.pullRequestNumber,
-    body: invoicePaidMessage({
-      githubLogin: reward.solverGithubLogin,
-      amount: reward.bounty.amount.toString(),
-      currency: reward.bounty.currency,
-    }),
-  });
+    await prisma.bounty.update({
+      where: { id: reward.bountyId },
+      data: { status: 'PAID' },
+    });
 
-  return NextResponse.json({ ok: true, paidReward: reward.id });
+    await createIssueComment({
+      installationId: reward.bounty.repository.installationId,
+      owner: reward.bounty.repository.owner,
+      repo: reward.bounty.repository.repo,
+      issueNumber: reward.pullRequestNumber,
+      body: invoicePaidMessage({
+        githubLogin: reward.solverGithubLogin,
+        amount: reward.bounty.amount.toString(),
+        currency: reward.bounty.currency,
+        transactionHash,
+        transactionUrl,
+      }),
+    });
+
+    await closeIssue({
+      installationId: reward.bounty.repository.installationId,
+      owner: reward.bounty.repository.owner,
+      repo: reward.bounty.repository.repo,
+      issueNumber: reward.bounty.issueNumber,
+    });
+
+    paidRewardIds.push(reward.id);
+  }
+
+  return NextResponse.json({ ok: true, paidRewards: paidRewardIds });
+}
+
+function getTransactionExplorerUrl(chain: string, transactionHash: string) {
+  const normalized = chain
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-');
+
+  if (
+    normalized === 'base-testnet' ||
+    normalized === 'base-sepolia' ||
+    normalized === 'base-testnet-sepolia' ||
+    normalized === 'sepolia-base'
+  ) {
+    return `https://sepolia.basescan.org/tx/${transactionHash}`;
+  }
+
+  if (normalized === 'base' || normalized === 'base-mainnet') {
+    return `https://basescan.org/tx/${transactionHash}`;
+  }
+
+  if (
+    normalized === 'bsc' ||
+    normalized === 'bnb' ||
+    normalized === 'bnb-smart-chain' ||
+    normalized === 'binance-smart-chain'
+  ) {
+    return `https://bscscan.com/tx/${transactionHash}`;
+  }
+
+  if (normalized === 'solana' || normalized === 'solana-mainnet') {
+    return `https://solscan.io/tx/${transactionHash}`;
+  }
 }
 
 function summarizeToken(token: string | undefined) {
@@ -484,6 +568,16 @@ function keysOf(value: unknown) {
 
 function stringFrom(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function uniqueStrings(values: unknown[]) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => stringFrom(value))
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
 }
 
 function dateLikeFrom(value: unknown) {
