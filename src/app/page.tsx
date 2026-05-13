@@ -106,14 +106,24 @@ export default function Home() {
     <main style={styles.page}>
       <section style={styles.hero}>
         <div style={styles.brandRow}>
-          <a
-            href="https://pvium.com"
-            target="_blank"
-            rel="noreferrer"
-            style={styles.poweredBy}
-          >
-            Powered by <strong>Pvium</strong>
-          </a>
+          <div style={styles.topLinks}>
+            <a
+              href="https://pvium.com"
+              target="_blank"
+              rel="noreferrer"
+              style={styles.poweredBy}
+            >
+              Powered by <strong>Pvium</strong>
+            </a>
+            <a
+              href="https://github.com/apps/pvium-bounty-app"
+              target="_blank"
+              rel="noreferrer"
+              style={styles.installLink}
+            >
+              Install GitHub App
+            </a>
+          </div>
           <a
             href="https://pvium.com"
             target="_blank"
@@ -125,7 +135,6 @@ export default function Home() {
               alt="Pvium logo"
               style={styles.logo}
             />
-            
           </a>
         </div>
         <p style={styles.eyebrow}>Pvium GitHub App</p>
@@ -311,6 +320,12 @@ const styles: Record<string, CSSProperties> = {
     gap: 12,
     marginBottom: 18,
   },
+  topLinks: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 10,
+  },
   logo: {
     width: 96,
     height: 96,
@@ -331,6 +346,17 @@ const styles: Record<string, CSSProperties> = {
     color: "#172033",
     fontSize: 14,
     fontWeight: 600,
+    textDecoration: "none",
+  },
+  installLink: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "10px 14px",
+    borderRadius: 8,
+    background: "#172033",
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: 700,
     textDecoration: "none",
   },
   eyebrow: {
