@@ -16,17 +16,12 @@ invite, payment link, funded webhook, and paid status updates.
 
 ## Local Setup
 
-The reward automation uses the local Pvium SDK at:
 
-```text
-/Users/Projects/Javascript/paytrack/sdks/node
-```
+Use Node.js 22 or newer. The test runner relies on Node's native TypeScript
+transform flags, which are not available in older LTS releases.
 
-`package.json` points `@pvium/sdk` at `file:../sdks/node`. If you change the
-SDK, rebuild it before running this app:
 
 ```bash
-cd /Users/Projects/Javascript/paytrack/sdks/node
 npm install
 npm run build
 ```
