@@ -105,14 +105,28 @@ export default function Home() {
   return (
     <main style={styles.page}>
       <section style={styles.hero}>
-        <a
-          href="https://pvium.com"
-          target="_blank"
-          rel="noreferrer"
-          style={styles.poweredBy}
-        >
-          Powered by <strong>Pvium</strong>
-        </a>
+        <div style={styles.brandRow}>
+          <a
+            href="https://pvium.com"
+            target="_blank"
+            rel="noreferrer"
+            style={styles.poweredBy}
+          >
+            Powered by <strong>Pvium</strong>
+          </a>
+          <a
+            href="https://pvium.com"
+            target="_blank"
+            rel="noreferrer"
+            style={styles.logoLink}
+          >
+            <img
+              src="/assets/logo-512v2.PNG"
+              alt="Pvium logo"
+              style={styles.logo}
+            />
+          </a>
+        </div>
         <p style={styles.eyebrow}>Pvium GitHub App</p>
         <h1 style={styles.title}>
           Reward GitHub contributors with Pvium payment links.
@@ -289,10 +303,26 @@ const styles: Record<string, CSSProperties> = {
     margin: "0 auto 24px",
     padding: "32px 0 8px",
   },
+  brandRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 18,
+  },
+  logo: {
+    width: 96,
+    height: 96,
+    borderRadius: 8,
+    objectFit: "contain",
+  },
+  logoLink: {
+    display: "inline-flex",
+    lineHeight: 0,
+  },
   poweredBy: {
     display: "inline-flex",
     alignItems: "center",
-    marginBottom: 18,
     padding: "9px 13px",
     border: "1px solid #c8d0df",
     borderRadius: 999,
