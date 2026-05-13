@@ -22,19 +22,18 @@ export function extractBountyLabels(labels: Array<{ name?: string }>) {
     .map((label) => (label.name ? parseBountyLabel(label.name) : null))
     .filter((label): label is ParsedBountyLabel => Boolean(label));
 }
-
 function getBountyLabelPattern() {
   const prefix = normalizeBountyLabelPrefix(
     process.env.PVIUM_BOUNTY_LABEL_PREFIX,
   );
 
   return new RegExp(
-    `^${escapeRegExp(prefix)}(\\d+(?:\\.\\d+)?)([a-zA-Z0-9]+)?$`,
+    `^${escapeRegExp(prefix)}(\\d+(?:\\.\\d+)?)\\s*([a-zA-Z0-9]+)?$`,
   );
 }
 function normalizeBountyLabelPrefix(value: string | undefined) {
   const prefix = value?.trim() || DEFAULT_BOUNTY_LABEL_PREFIX;
-  return prefix.endsWith(':') ? prefix : `${prefix}:`;
+  return prefix.endsWith(":") ? prefix : `${prefix}:`;
 }
 
 function escapeRegExp(value: string) {
