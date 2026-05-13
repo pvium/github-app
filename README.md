@@ -41,6 +41,14 @@ npm run prisma:migrate
 npm run dev
 ```
 
+Production deployments run Prisma migrations with:
+
+```bash
+npm run prisma:deploy
+```
+
+On Vercel this is included in the `vercel-build` script before the app build.
+
 Required `.env` values:
 
 ```text

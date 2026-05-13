@@ -6,15 +6,15 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "prisma generate && next build",
+    "vercel-build": "prisma migrate deploy && prisma generate && next build",
     "start": "next start",
     "test": "node --disable-warning=ExperimentalWarning --experimental-transform-types --test tests/*.test.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy"
   },
-  
   "dependencies": {
     "@octokit/app": "^15.1.6",
     "@octokit/rest": "^21.1.1",
