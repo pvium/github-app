@@ -1,9 +1,8 @@
 # Pvium GitHub App
 
-API-first Next.js service for rewarding GitHub contributors with Pvium payment links.
-The app listens to GitHub webhooks, creates Pvium invite links only after an
-eligible PR is merged, and comments a clickable payment link that a repository
-maintainer can open and pay.
+Reward GitHub contributors with Pvium payment links. Maintainers label bounty
+issues, contributors close them with pull requests, and Pvium handles the
+invite, payment link, funded webhook, and paid status updates.
 
 ## Flow
 
@@ -17,7 +16,7 @@ maintainer can open and pay.
 
 ## Local Setup
 
-This app uses the local Pvium SDK at:
+The reward automation uses the local Pvium SDK at:
 
 ```text
 /Users/Projects/Javascript/paytrack/sdks/node
