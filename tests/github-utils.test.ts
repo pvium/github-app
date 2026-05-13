@@ -35,6 +35,14 @@ describe("parseBountyLabel", () => {
     });
   });
 
+  it("parses labels with a space before the currency", () => {
+    assert.deepEqual(parseBountyLabel("pvium:20 USDC"), {
+      amount: 20,
+      currency: "USDC",
+      raw: "pvium:20 USDC",
+    });
+  });
+
   it("rejects non-Pvium labels", () => {
     assert.equal(parseBountyLabel("bug"), null);
     assert.equal(parseBountyLabel("pvium:"), null);
