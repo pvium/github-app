@@ -105,6 +105,14 @@ export default function Home() {
   return (
     <main style={styles.page}>
       <section style={styles.hero}>
+        <a
+          href="https://pvium.com"
+          target="_blank"
+          rel="noreferrer"
+          style={styles.poweredBy}
+        >
+          Powered by <strong>Pvium</strong>
+        </a>
         <p style={styles.eyebrow}>Pvium GitHub App</p>
         <h1 style={styles.title}>
           Reward GitHub contributors with Pvium payment links.
@@ -280,6 +288,19 @@ const styles: Record<string, CSSProperties> = {
     maxWidth: 980,
     margin: "0 auto 24px",
     padding: "32px 0 8px",
+  },
+  poweredBy: {
+    display: "inline-flex",
+    alignItems: "center",
+    marginBottom: 18,
+    padding: "9px 13px",
+    border: "1px solid #c8d0df",
+    borderRadius: 999,
+    background: "#ffffff",
+    color: "#172033",
+    fontSize: 14,
+    fontWeight: 600,
+    textDecoration: "none",
   },
   eyebrow: {
     margin: "0 0 12px",
