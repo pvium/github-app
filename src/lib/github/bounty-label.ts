@@ -4,10 +4,10 @@ export interface ParsedBountyLabel {
   raw: string;
 }
 
-const bountyLabelPattern = /^pvium:(\d+(?:\.\d+)?)([a-zA-Z0-9]+)?$/;
+const DEFAULT_BOUNTY_LABEL_PREFIX = "pvium:";
 
 export function parseBountyLabel(labelName: string): ParsedBountyLabel | null {
-  const match = labelName.trim().match(bountyLabelPattern);
+  const match = labelName.trim().match(getBountyLabelPattern());
   if (!match) return null;
 
   return {
@@ -21,4 +21,18 @@ export function extractBountyLabels(labels: Array<{ name?: string }>) {
   return labels
     .map((label) => (label.name ? parseBountyLabel(label.name) : null))
     .filter((label): label is ParsedBountyLabel => Boolean(label));
+}
+
+function getBountyLabelPattern() {
+  const prefix =
+    process.env.PVIUM_BOUNTY_LABEL_PREFIX?.trim() ||
+    DEFAULT_BOUNTY_LABEL_PREFIX;
+
+  return new RegExp(
+    `^${escapeRegExp(prefix)}(\\d+(?:\\.\\d+)?)([a-zA-Z0-9]+)?$`,
+  );
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

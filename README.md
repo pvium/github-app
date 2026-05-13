@@ -132,6 +132,7 @@ status, duration, and network errors without logging full URLs or secrets.
 `invoice` to use the legacy invoice flow. Configure:
 
 - `PVIUM_REWARD_PAYMENT_CHAIN`: chain used by both invoice payment channels and instant batch links.
+- `PVIUM_BOUNTY_LABEL_PREFIX`: GitHub issue label prefix used to detect bounties. Defaults to `pvium:` when unset or empty.
 - `PVIUM_REWARD_PAYMENT_CURRENCY`: invoice payment currency.
 - `PVIUM_REWARD_PAYMENT_SIGNER_PRIVATE_KEY`: private key used to sign instant batches. If omitted, the invite signer is used.
 - `PVIUM_REWARD_PAYMENT_CHAIN_ID`: chain id used to finalize instant batches.
@@ -166,7 +167,7 @@ Pvium events handled by this app:
 ## Usage
 
 1. Install the GitHub App on a repository.
-2. Add a bounty label to an issue: `pvium:20USDC`, `pvium:20 USDC`, or `pvium:20`.
+2. Add a bounty label to an issue: `pvium:20USDC` or `pvium:20`. If `PVIUM_BOUNTY_LABEL_PREFIX` is changed, use that prefix instead.
 3. Merge a PR into a configured reward target branch with a closing reference like `Closes #123`.
 4. The app comments on the merged PR.
 5. If the contributor needs to link Pvium, they use the invite link in the comment.

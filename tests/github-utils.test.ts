@@ -40,6 +40,26 @@ describe("parseBountyLabel", () => {
     assert.equal(parseBountyLabel("bug"), null);
     assert.equal(parseBountyLabel("pvium:"), null);
   });
+
+  it("uses a custom bounty label prefix from the environment", () => {
+    const previousPrefix = process.env.PVIUM_BOUNTY_LABEL_PREFIX;
+    process.env.PVIUM_BOUNTY_LABEL_PREFIX = "reward:";
+
+    try {
+      assert.deepEqual(parseBountyLabel("reward:15USDC"), {
+        amount: 15,
+        currency: "USDC",
+        raw: "reward:15USDC",
+      });
+      assert.equal(parseBountyLabel("pvium:15USDC"), null);
+    } finally {
+      if (previousPrefix === undefined) {
+        delete process.env.PVIUM_BOUNTY_LABEL_PREFIX;
+      } else {
+        process.env.PVIUM_BOUNTY_LABEL_PREFIX = previousPrefix;
+      }
+    }
+  });
 });
 
 describe("extractBountyLabels", () => {
@@ -96,10 +116,7 @@ describe("GitHub messages", () => {
       currency: "USDC",
     });
 
-    assert.match(
-      body,
-      /\[PAY REWARD\]\(https:\/\/pvium\.test\/invoice\/123\)/,
-    );
+    assert.match(body, /\[PAY REWARD\]\(https:\/\/pvium\.test\/invoice\/123\)/);
   });
 });
 
