@@ -24,16 +24,17 @@ export function extractBountyLabels(labels: Array<{ name?: string }>) {
 }
 
 function getBountyLabelPattern() {
-  console.log('[bounty-label] using bounty label prefix:', {
-    prefix: process.env.PVIUM_BOUNTY_LABEL_PREFIX,
-  });
-  const prefix =
-    process.env.PVIUM_BOUNTY_LABEL_PREFIX?.trim() ||
-    DEFAULT_BOUNTY_LABEL_PREFIX;
+  const prefix = normalizeBountyLabelPrefix(
+    process.env.PVIUM_BOUNTY_LABEL_PREFIX,
+  );
 
   return new RegExp(
     `^${escapeRegExp(prefix)}(\\d+(?:\\.\\d+)?)([a-zA-Z0-9]+)?$`,
   );
+}
+function normalizeBountyLabelPrefix(value: string | undefined) {
+  const prefix = value?.trim() || DEFAULT_BOUNTY_LABEL_PREFIX;
+  return prefix.endsWith(':') ? prefix : `${prefix}:`;
 }
 
 function escapeRegExp(value: string) {

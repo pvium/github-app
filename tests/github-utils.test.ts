@@ -60,6 +60,26 @@ describe("parseBountyLabel", () => {
       }
     }
   });
+
+  it("accepts a custom bounty label prefix without a trailing colon", () => {
+    const previousPrefix = process.env.PVIUM_BOUNTY_LABEL_PREFIX;
+    process.env.PVIUM_BOUNTY_LABEL_PREFIX = "pviumSandbox";
+
+    try {
+      assert.deepEqual(parseBountyLabel("pviumSandbox:25USDC"), {
+        amount: 25,
+        currency: "USDC",
+        raw: "pviumSandbox:25USDC",
+      });
+      assert.equal(parseBountyLabel("pviumSandbox25USDC"), null);
+    } finally {
+      if (previousPrefix === undefined) {
+        delete process.env.PVIUM_BOUNTY_LABEL_PREFIX;
+      } else {
+        process.env.PVIUM_BOUNTY_LABEL_PREFIX = previousPrefix;
+      }
+    }
+  });
 });
 
 describe("extractBountyLabels", () => {
