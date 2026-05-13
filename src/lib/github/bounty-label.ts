@@ -4,7 +4,7 @@ export interface ParsedBountyLabel {
   raw: string;
 }
 
-const bountyLabelPattern = /^pvium:(\d+(?:\.\d+)?)([a-zA-Z0-9]+)?$/;
+const bountyLabelPattern = /^pvium:(\d+(?:\.\d+)?)\s*([a-zA-Z0-9]+)?$/;
 
 export function parseBountyLabel(labelName: string): ParsedBountyLabel | null {
   const match = labelName.trim().match(bountyLabelPattern);
