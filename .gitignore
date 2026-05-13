@@ -4,6 +4,8 @@ dist
 coverage
 .env
 .env.local
+.env.*
+!.env.example
 *.log
 secrets.json
 .DS_Store
@@ -14,3 +16,4 @@ secrets.json
 *.njsproj
 *.sln
 *.sw?
+tsconfig.tsbuildinfo

@@ -1,5 +1,6 @@
 import { App } from "@octokit/app";
 import { getEnv } from "@/lib/config/env";
+import { serializeError } from "@/lib/errors";
 
 let app: App | null = null;
 
@@ -24,10 +25,60 @@ export async function createIssueComment(params: {
   body: string;
 }) {
   const octokit = await getInstallationOctokit(params.installationId);
-  return octokit.request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
-    owner: params.owner,
-    repo: params.repo,
-    issue_number: params.issueNumber,
-    body: params.body,
-  });
+  try {
+    return await octokit.request(
+      "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
+      {
+        owner: params.owner,
+        repo: params.repo,
+        issue_number: params.issueNumber,
+        body: params.body,
+      },
+    );
+  } catch (error) {
+    const serializedError = serializeError(error);
+    console.error("[github] failed to create issue comment", {
+      owner: params.owner,
+      repo: params.repo,
+      issueNumber: params.issueNumber,
+      installationId: params.installationId.toString(),
+      error: serializedError,
+      errorJson: JSON.stringify(serializedError),
+    });
+
+    throw error;
+  }
+}
+
+export async function closeIssue(params: {
+  installationId: number | bigint;
+  owner: string;
+  repo: string;
+  issueNumber: number;
+}) {
+  const octokit = await getInstallationOctokit(params.installationId);
+  try {
+    return await octokit.request(
+      "PATCH /repos/{owner}/{repo}/issues/{issue_number}",
+      {
+        owner: params.owner,
+        repo: params.repo,
+        issue_number: params.issueNumber,
+        state: "closed",
+        state_reason: "completed",
+      },
+    );
+  } catch (error) {
+    const serializedError = serializeError(error);
+    console.error("[github] failed to close issue", {
+      owner: params.owner,
+      repo: params.repo,
+      issueNumber: params.issueNumber,
+      installationId: params.installationId.toString(),
+      error: serializedError,
+      errorJson: JSON.stringify(serializedError),
+    });
+
+    throw error;
+  }
 }

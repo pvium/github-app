@@ -1,16 +1,49 @@
 import { PviumSdk, type CreateInvoiceResponse } from "@pvium/sdk";
 import { getEnv } from "@/lib/config/env";
+import { serializeError } from "@/lib/errors";
+import { calculatePlatformFeeAmount } from './fees';
 
 let pvium: ReturnType<typeof PviumSdk.init> | null = null;
 const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+const PVIUM_API_BASE_URLS = {
+  test: ' https://5e5f-99-69-4-225.ngrok-free.app/v1',
+  sandbox: 'https://api-sandbox.pvium.com/v1',
+  production: 'https://api.pvium.com/v1',
+} as const;
+const PVIUM_CONSENT_HOSTS = {
+  test: 'https://sandbox.pvium.com',
+  sandbox: 'https://sandbox.pvium.com',
+  production: 'https://pvium.com',
+} as const;
 
 function getPvium() {
   const env = getEnv();
-  pvium ??= PviumSdk.init({
-    environment: env.PVIUM_ENVIRONMENT,
-    apiKey: env.PVIUM_API_KEY,
-    clientId: env.PVIUM_CLIENT_ID,
-  });
+  if (!pvium) {
+    const apiBaseUrl =
+      env.PVIUM_API_BASE_URL ?? PVIUM_API_BASE_URLS[env.PVIUM_ENVIRONMENT];
+    const consentHost =
+      env.PVIUM_CONSENT_HOST ?? PVIUM_CONSENT_HOSTS[env.PVIUM_ENVIRONMENT];
+
+    console.log("[pvium] initializing SDK", {
+      environment: env.PVIUM_ENVIRONMENT,
+      apiBaseUrl,
+      consentHost,
+      clientId: env.PVIUM_CLIENT_ID,
+      hasApiKey: Boolean(env.PVIUM_API_KEY),
+      sdkRequestLogging: env.PVIUM_SDK_LOG_REQUESTS,
+    });
+
+    pvium = PviumSdk.init({
+      environment: env.PVIUM_ENVIRONMENT,
+      baseUrl: env.PVIUM_API_BASE_URL,
+      consentHost: env.PVIUM_CONSENT_HOST,
+      apiKey: env.PVIUM_API_KEY,
+      clientId: env.PVIUM_CLIENT_ID,
+      logging: {
+        requests: env.PVIUM_SDK_LOG_REQUESTS,
+      },
+    });
+  }
   return pvium;
 }
 
@@ -20,6 +53,18 @@ export async function createGithubInviteLink(params: {
   scopes?: string[];
 }) {
   const env = getEnv();
+
+  console.log("[pvium] creating signed GitHub invite bundle", {
+    githubLogin: params.githubLogin,
+    rewardAttemptId: params.rewardAttemptId,
+    environment: env.PVIUM_ENVIRONMENT,
+    apiBaseUrl:
+      env.PVIUM_API_BASE_URL ?? PVIUM_API_BASE_URLS[env.PVIUM_ENVIRONMENT],
+    consentHost:
+      env.PVIUM_CONSENT_HOST ?? PVIUM_CONSENT_HOSTS[env.PVIUM_ENVIRONMENT],
+    redirectUri: env.PVIUM_OAUTH_REDIRECT_URI,
+  });
+
   const signed = await getPvium().invites.createSignedBundle(
     {
       identities: [
@@ -49,7 +94,31 @@ export async function createGithubInviteLink(params: {
     },
   );
 
-  await getPvium().invites.commitBundle(signed);
+  console.log("[pvium] committing signed GitHub invite bundle", {
+    githubLogin: params.githubLogin,
+    rewardAttemptId: params.rewardAttemptId,
+    inviteLinks: signed.inviteLinks.length,
+  });
+
+  try {
+    await getPvium().invites.commitBundle(signed);
+  } catch (error) {
+    const serializedError = serializeError(error);
+    console.error("[pvium] failed to commit signed GitHub invite bundle", {
+      githubLogin: params.githubLogin,
+      rewardAttemptId: params.rewardAttemptId,
+      error: serializedError,
+      errorJson: JSON.stringify(serializedError),
+    });
+
+    throw error;
+  }
+
+  console.log("[pvium] committed signed GitHub invite bundle", {
+    githubLogin: params.githubLogin,
+    rewardAttemptId: params.rewardAttemptId,
+  });
+
   return signed.inviteLinks[0];
 }
 
@@ -112,86 +181,124 @@ async function createRewardInstantBatchPayment(params: {
 
   if (!signerPrivateKey) {
     throw new Error(
-      "PVIUM_REWARD_PAYMENT_SIGNER_PRIVATE_KEY is required for instant batch reward payments",
+      'PVIUM_REWARD_PAYMENT_SIGNER_PRIVATE_KEY is required for instant batch reward payments',
     );
   }
 
   if (!EVM_ADDRESS_RE.test(token)) {
     throw new Error(
-      "PVIUM_REWARD_PAYMENT_TOKEN_ADDRESS must be configured with an ERC-20 token address for instant batch reward payments",
+      'PVIUM_REWARD_PAYMENT_TOKEN_ADDRESS must be configured with an ERC-20 token address for instant batch reward payments',
     );
   }
 
-  const pviumUser =
-    params.pviumUser ||
-    (params.accessToken
-      ? (await getPvium().oauth.getUserInfo({ accessToken: params.accessToken }))
-          .data
-      : undefined);
-  const rewardWallet = getEthereumWalletAddress(pviumUser);
-
-  if (!rewardWallet) {
+  if (!params.githubLogin) {
     throw new Error(
-      `No Ethereum wallet found for @${params.githubLogin || "github user"}`,
+      'githubLogin is required to create instant batch reward payments',
     );
   }
 
-  const feeAmount = Number(env.PVIUM_REWARD_PLATFORM_FEE_AMOUNT || 0);
-  const payments = [
-    {
-      receiver: rewardWallet,
-      amount: params.amount,
-      token,
-      decimals: env.PVIUM_REWARD_PAYMENT_TOKEN_DECIMALS,
-      memo: params.description,
-      publicId: params.githubLogin ? `github:${params.githubLogin}` : undefined,
-    },
-  ];
+  const platformFeeAmount = env.PVIUM_REWARD_PLATFORM_FEE_WALLET
+    ? calculatePlatformFeeAmount({
+        rewardAmount: params.amount,
+        feeBasisPoints: env.PVIUM_REWARD_PLATFORM_FEE_BASIS_POINTS,
+        maxFeeAmount: env.PVIUM_REWARD_MAX_FEE_AMOUNT,
+        decimals: env.PVIUM_REWARD_PAYMENT_TOKEN_DECIMALS,
+      })
+    : 0;
+  const payments: Array<{
+    receiver: string;
+    amount: number;
+    token: string;
+    decimals: number;
+    memo?: string;
+    publicId?: string;
+  }> = [];
 
-  if (feeAmount > 0) {
-    if (!env.PVIUM_REWARD_PLATFORM_FEE_WALLET) {
-      throw new Error(
-        "PVIUM_REWARD_PLATFORM_FEE_WALLET is required when PVIUM_REWARD_PLATFORM_FEE_AMOUNT is greater than zero",
-      );
-    }
-
+  if (platformFeeAmount > 0 && env.PVIUM_REWARD_PLATFORM_FEE_WALLET) {
     payments.push({
       receiver: env.PVIUM_REWARD_PLATFORM_FEE_WALLET,
-      amount: feeAmount,
+      amount: platformFeeAmount,
       token,
       decimals: env.PVIUM_REWARD_PAYMENT_TOKEN_DECIMALS,
-      memo: "platform-fee",
-      publicId: "platform-fee",
+      memo: 'platform fee',
+      publicId: 'platform-fee',
     });
   }
 
-  const requestOptions = params.accessToken
-    ? { accessToken: params.accessToken }
-    : undefined;
+  const requestOptions = undefined;
+
+  console.log('[pvium] creating instant batch payment', {
+    githubLogin: params.githubLogin,
+    amount: params.amount,
+    currency: params.currency,
+    chain: env.PVIUM_REWARD_PAYMENT_CHAIN,
+    hasPlatformFee: platformFeeAmount > 0,
+  });
+
   const created = await getPvium().payout.create(
     {
-      type: "Instant",
+      type: 'Instant',
       chain: env.PVIUM_REWARD_PAYMENT_CHAIN,
       name: params.title,
       description: params.description,
       payments,
-      complianceMode: "Open",
+      complianceMode: 'Open',
       metadata: {
-        source: "github-app",
+        source: 'github-app',
         githubLogin: params.githubLogin,
         rewardAmount: params.amount,
         rewardCurrency: params.currency,
-        platformFeeAmount: feeAmount,
+        platformFeeBasisPoints: env.PVIUM_REWARD_PLATFORM_FEE_BASIS_POINTS,
+        platformFeeAmount,
+        platformFeeMaxAmount: env.PVIUM_REWARD_MAX_FEE_AMOUNT,
+        payoutCurrency: token,
         payoutToken: token,
       },
     },
+    // requestOptions,
+  );
+
+  const addedRecipients = await getPvium().payout.addRecipients(
+    created.data.id,
+    [
+      {
+        identityType: 'github',
+        identityValue: params.githubLogin,
+        defaultPayoutAmount: params.amount,
+        memo: params.description,
+      },
+    ],
     requestOptions,
   );
+  const addRecipientsResult = addedRecipients.data;
+  const rewardRecipient = addRecipientsResult.added[0];
+
+  if (!rewardRecipient?.receiver) {
+    console.warn('[pvium] failed to resolve reward recipient by GitHub login', {
+      batchId: created.data.id,
+      githubLogin: params.githubLogin,
+      errors: addRecipientsResult.errors,
+    });
+
+    throw new Error(
+      addRecipientsResult.errors[0]?.reason ||
+        `No Pvium wallet found for @${params.githubLogin}`,
+    );
+  }
+
+  payments.push({
+    receiver: rewardRecipient.receiver,
+    amount: params.amount,
+    token,
+    decimals: env.PVIUM_REWARD_PAYMENT_TOKEN_DECIMALS,
+    memo: params.description,
+    publicId: `github:${params.githubLogin}`,
+  });
 
   const finalized = await getPvium().payout.finalize(
     created.data,
     {
-      chain: "ethereum",
+      chain: 'ethereum',
       privateKey: signerPrivateKey,
     },
     {
@@ -203,8 +310,8 @@ async function createRewardInstantBatchPayment(params: {
   );
 
   return {
-    id: String(finalized.data.payout.id || created.data.id || ""),
-    url: String(finalized.data.fundingUrl || ""),
+    id: String(finalized.data.payout.id || created.data.id || ''),
+    url: String(finalized.data.fundingUrl || ''),
     raw: finalized,
   };
 }
@@ -224,26 +331,21 @@ export async function refreshPviumAccessToken(refreshToken: string) {
   return getPvium().oauth.refreshAccessToken({ refreshToken });
 }
 
-export function getPviumAccessTokenExpiresAt(expiresIn?: number) {
-  if (!expiresIn || !Number.isFinite(expiresIn)) return null;
-  return new Date(Date.now() + expiresIn * 1000);
-}
+export function getPviumAccessTokenExpiresAt(input?: {
+  expiresIn?: number | null;
+  expiresAt?: string | number | Date | null;
+}) {
+  if (input?.expiresAt) {
+    const expiresAt =
+      input.expiresAt instanceof Date
+        ? input.expiresAt
+        : new Date(input.expiresAt);
 
-type PviumUserLike = {
-  privyLinkedAccounts?: Array<{
-    type?: string;
-    address?: string;
-    chainType?: string;
-    chain?: string;
-    walletClientType?: string;
-  }>;
-};
+    if (Number.isFinite(expiresAt.getTime())) {
+      return expiresAt;
+    }
+  }
 
-function getEthereumWalletAddress(user?: PviumUserLike) {
-  const wallet = user?.privyLinkedAccounts?.find((account) => {
-    if (account.type !== "wallet" || !account.address) return false;
-    return EVM_ADDRESS_RE.test(account.address);
-  });
-
-  return wallet?.address;
+  if (!input?.expiresIn || !Number.isFinite(input.expiresIn)) return null;
+  return new Date(Date.now() + input.expiresIn * 1000);
 }
