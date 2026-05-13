@@ -24,6 +24,9 @@ export function extractBountyLabels(labels: Array<{ name?: string }>) {
 }
 
 function getBountyLabelPattern() {
+  console.log('[bounty-label] using bounty label prefix:', {
+    prefix: process.env.PVIUM_BOUNTY_LABEL_PREFIX,
+  });
   const prefix =
     process.env.PVIUM_BOUNTY_LABEL_PREFIX?.trim() ||
     DEFAULT_BOUNTY_LABEL_PREFIX;

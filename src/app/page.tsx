@@ -125,6 +125,7 @@ export default function Home() {
               alt="Pvium logo"
               style={styles.logo}
             />
+            
           </a>
         </div>
         <p style={styles.eyebrow}>Pvium GitHub App</p>
