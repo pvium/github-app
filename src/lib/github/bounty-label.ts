@@ -22,7 +22,6 @@ export function extractBountyLabels(labels: Array<{ name?: string }>) {
     .map((label) => (label.name ? parseBountyLabel(label.name) : null))
     .filter((label): label is ParsedBountyLabel => Boolean(label));
 }
-
 function getBountyLabelPattern() {
   const prefix = normalizeBountyLabelPrefix(
     process.env.PVIUM_BOUNTY_LABEL_PREFIX,
