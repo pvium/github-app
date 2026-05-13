@@ -120,6 +120,16 @@ describe("extractLinkedIssueNumbers", () => {
     );
   });
 
+  it("extracts owner-qualified and URL closing references", () => {
+    assert.deepEqual(
+      extractLinkedIssueNumbers(
+        "Fixes pvium/github-app#13",
+        "Resolves https://github.com/pvium/github-app/issues/9",
+      ),
+      [9, 13],
+    );
+  });
+
   it("ignores non-closing references", () => {
     assert.deepEqual(
       extractLinkedIssueNumbers("Refs #12", "Related to #8"),

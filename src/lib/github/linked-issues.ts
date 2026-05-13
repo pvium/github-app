@@ -1,5 +1,5 @@
 const closingKeywordPattern =
-  /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)\b/gi;
+  /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?:(?:[\w.-]+\/[\w.-]+)?#|https?:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/)(\d+)\b/gi;
 
 export function extractLinkedIssueNumbers(...texts: Array<string | null | undefined>) {
   const issueNumbers = new Set<number>();
