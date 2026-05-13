@@ -16,3 +16,4 @@ secrets.json
 *.njsproj
 *.sln
 *.sw?
+tsconfig.tsbuildinfo
