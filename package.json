@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "prisma generate && next build",
     "start": "next start",
     "test": "node --disable-warning=ExperimentalWarning --experimental-transform-types --test tests/*.test.ts",
     "lint": "next lint",
@@ -13,12 +14,13 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev"
   },
+  
   "dependencies": {
     "@octokit/app": "^15.1.6",
     "@octokit/rest": "^21.1.1",
     "@octokit/webhooks": "^13.9.0",
     "@prisma/client": "^6.17.1",
-    "@pvium/sdk": "^0.2.2",
+    "@pvium/sdk": "0.2.3",
     "next": "^15.5.6",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

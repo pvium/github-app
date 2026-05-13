@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
+import { getEnv } from "@/lib/config/env";
+import { serializeError } from "@/lib/errors";
 import { parseBountyLabel } from "@/lib/github/bounty-label";
 import { createIssueComment } from "@/lib/github/client";
 import {
@@ -22,6 +24,20 @@ export async function handleGithubWebhook(params: {
   payload: GithubWebhookPayload;
 }) {
   const action = params.payload.action;
+  const pullRequest = params.payload.pull_request;
+
+  console.log("[github-webhook] received", {
+    deliveryId: params.deliveryId,
+    event: params.event,
+    action,
+    repository: params.payload.repository?.full_name,
+    sender: params.payload.sender?.login,
+    issueNumber: params.payload.issue?.number,
+    pullRequestNumber: pullRequest?.number,
+    pullRequestMerged: pullRequest?.merged,
+    pullRequestBaseBranch: pullRequest?.base?.ref,
+    pullRequestHeadBranch: pullRequest?.head?.ref,
+  });
 
   await prisma.webhookDelivery.upsert({
     where: { id: params.deliveryId },
@@ -42,6 +58,12 @@ export async function handleGithubWebhook(params: {
   if (params.event === "pull_request" && action === "closed") {
     return handlePullRequestClosed(params.payload);
   }
+
+  console.log("[github-webhook] ignored unsupported event/action", {
+    deliveryId: params.deliveryId,
+    event: params.event,
+    action,
+  });
 
   return { ignored: true };
 }
@@ -76,7 +98,16 @@ async function upsertRepository(payload: GithubWebhookPayload) {
 
 async function handleIssueLabeled(payload: GithubWebhookPayload) {
   const parsed = parseBountyLabel(payload.label?.name ?? "");
-  if (!parsed) return { ignored: true };
+  if (!parsed) {
+    console.log("[github-webhook] ignored issue label", {
+      repository: payload.repository?.full_name,
+      issueNumber: payload.issue?.number,
+      label: payload.label?.name,
+      reason: "Label is not a Pvium bounty label",
+    });
+
+    return { ignored: true };
+  }
 
   const repository = await upsertRepository(payload);
   const bounty = await prisma.bounty.upsert({
@@ -114,14 +145,60 @@ async function handleIssueLabeled(payload: GithubWebhookPayload) {
     }),
   });
 
+  console.log("[github-webhook] bounty registered", {
+    repository: payload.repository?.full_name,
+    issueNumber: bounty.issueNumber,
+    label: bounty.labelName,
+    amount: bounty.amount.toString(),
+    currency: bounty.currency,
+  });
+
   return { bountyId: bounty.id };
 }
 
 async function handlePullRequestClosed(payload: GithubWebhookPayload) {
+  const env = getEnv();
   const pullRequest = payload.pull_request;
-  if (!pullRequest?.merged) return { ignored: true };
-  if (!["main", "master"].includes(pullRequest.base?.ref)) {
+  if (!pullRequest?.merged) {
+    console.log("[github-webhook] ignored pull_request.closed", {
+      repository: payload.repository?.full_name,
+      pullRequestNumber: pullRequest?.number,
+      baseBranch: pullRequest?.base?.ref,
+      headBranch: pullRequest?.head?.ref,
+      merged: pullRequest?.merged,
+      reason: "Pull request was closed without merge",
+    });
+
     return { ignored: true };
+  }
+
+  const targetBranches = env.GITHUB_REWARD_TARGET_BRANCHES.split(",")
+    .map((branch) => branch.trim())
+    .filter(Boolean);
+
+  console.log("[github-webhook] pull_request.closed branch check", {
+    repository: payload.repository?.full_name,
+    pullRequestNumber: pullRequest.number,
+    baseBranch: pullRequest.base?.ref,
+    headBranch: pullRequest.head?.ref,
+    targetBranches,
+  });
+
+  if (!targetBranches.includes(pullRequest.base?.ref)) {
+    console.log("[github-webhook] ignored pull_request.closed", {
+      repository: payload.repository?.full_name,
+      pullRequestNumber: pullRequest.number,
+      baseBranch: pullRequest.base?.ref,
+      targetBranches,
+      reason: "Pull request target branch is not configured for rewards",
+    });
+
+    return {
+      ignored: true,
+      reason: "Pull request target branch is not configured for rewards",
+      branch: pullRequest.base?.ref,
+      targetBranches,
+    };
   }
 
   const repository = await upsertRepository(payload);
@@ -130,7 +207,19 @@ async function handlePullRequestClosed(payload: GithubWebhookPayload) {
     pullRequest.body,
   );
 
+  console.log("[github-webhook] pull_request.closed linked issue check", {
+    repository: payload.repository?.full_name,
+    pullRequestNumber: pullRequest.number,
+    linkedIssues,
+  });
+
   if (!linkedIssues.length) {
+    console.log("[github-webhook] ignored pull_request.closed", {
+      repository: payload.repository?.full_name,
+      pullRequestNumber: pullRequest.number,
+      reason: "No closing issue references found",
+    });
+
     return { ignored: true, reason: "No closing issue references found" };
   }
 
@@ -142,6 +231,13 @@ async function handlePullRequestClosed(payload: GithubWebhookPayload) {
     },
   });
 
+  console.log("[github-webhook] pull_request.closed bounty lookup", {
+    repository: payload.repository?.full_name,
+    pullRequestNumber: pullRequest.number,
+    linkedIssues,
+    openBountiesFound: bounties.length,
+  });
+
   for (const bounty of bounties) {
     await processRewardForBounty({
       repository,
@@ -149,6 +245,12 @@ async function handlePullRequestClosed(payload: GithubWebhookPayload) {
       pullRequest,
     });
   }
+
+  console.log("[github-webhook] pull_request.closed processed", {
+    repository: payload.repository?.full_name,
+    pullRequestNumber: pullRequest.number,
+    processedBounties: bounties.length,
+  });
 
   return { processed: bounties.length };
 }
@@ -171,6 +273,15 @@ async function processRewardForBounty(params: {
     ? await getUsablePviumAccessToken(githubUserLink)
     : null;
 
+  console.log("[github-webhook] processing reward", {
+    repository: `${params.repository.owner}/${params.repository.repo}`,
+    issueNumber: params.bounty.issueNumber,
+    pullRequestNumber: params.pullRequest.number,
+    solverLogin,
+    hasGithubUserLink: Boolean(githubUserLink),
+    hasUsablePviumAccessToken: Boolean(savedAccessToken),
+  });
+
   const reward = await prisma.rewardAttempt.upsert({
     where: {
       bountyId_pullRequestNumber_solverGithubLogin: {
@@ -192,10 +303,27 @@ async function processRewardForBounty(params: {
   });
 
   if (!savedAccessToken) {
-    const inviteLink = await createGithubInviteLink({
-      githubLogin: solverLogin,
-      rewardAttemptId: reward.id,
-    });
+    let inviteLink: string;
+    try {
+      inviteLink = await createGithubInviteLink({
+        githubLogin: solverLogin,
+        rewardAttemptId: reward.id,
+      });
+    } catch (error) {
+      const serializedError = serializeError(error);
+      console.error("[github-webhook] failed to create Pvium invite link", {
+        repository: `${params.repository.owner}/${params.repository.repo}`,
+        issueNumber: params.bounty.issueNumber,
+        pullRequestNumber: params.pullRequest.number,
+        solverLogin,
+        rewardAttemptId: reward.id,
+        error: serializedError,
+        errorJson: JSON.stringify(serializedError),
+      });
+
+      throw error;
+    }
+
     await prisma.rewardAttempt.update({
       where: { id: reward.id },
       data: {
@@ -217,17 +345,41 @@ async function processRewardForBounty(params: {
       }),
     });
 
+    console.log("[github-webhook] invite comment posted", {
+      repository: `${params.repository.owner}/${params.repository.repo}`,
+      issueNumber: params.bounty.issueNumber,
+      pullRequestNumber: params.pullRequest.number,
+      solverLogin,
+      rewardAttemptId: reward.id,
+    });
+
     return;
   }
 
-  const invoice = await createRewardInvoice({
-    amount: Number(params.bounty.amount),
-    currency: params.bounty.currency,
-    title: `Pvium GitHub reward for ${params.repository.owner}/${params.repository.repo}#${params.pullRequest.number}`,
-    description: `Reward for @${solverLogin} after merged PR #${params.pullRequest.number}.`,
-    githubLogin: solverLogin,
-    accessToken: savedAccessToken,
-  });
+  let invoice: Awaited<ReturnType<typeof createRewardInvoice>>;
+  try {
+    invoice = await createRewardInvoice({
+      amount: Number(params.bounty.amount),
+      currency: params.bounty.currency,
+      title: `Pvium GitHub reward for ${params.repository.owner}/${params.repository.repo}#${params.pullRequest.number}`,
+      description: `Reward for @${solverLogin} after merged PR #${params.pullRequest.number}.`,
+      githubLogin: solverLogin,
+      accessToken: savedAccessToken,
+    });
+  } catch (error) {
+    const serializedError = serializeError(error);
+    console.error("[github-webhook] failed to create Pvium payment link", {
+      repository: `${params.repository.owner}/${params.repository.repo}`,
+      issueNumber: params.bounty.issueNumber,
+      pullRequestNumber: params.pullRequest.number,
+      solverLogin,
+      rewardAttemptId: reward.id,
+      error: serializedError,
+      errorJson: JSON.stringify(serializedError),
+    });
+
+    throw error;
+  }
 
   await prisma.rewardAttempt.update({
     where: { id: reward.id },
@@ -256,6 +408,15 @@ async function processRewardForBounty(params: {
       currency: params.bounty.currency,
     }),
   });
+
+  console.log("[github-webhook] payment link comment posted", {
+    repository: `${params.repository.owner}/${params.repository.repo}`,
+    issueNumber: params.bounty.issueNumber,
+    pullRequestNumber: params.pullRequest.number,
+    solverLogin,
+    rewardAttemptId: reward.id,
+    paymentId: invoice.id,
+  });
 }
 
 async function getUsablePviumAccessToken(githubUserLink: {
@@ -268,7 +429,7 @@ async function getUsablePviumAccessToken(githubUserLink: {
 
   const refreshBufferMs = 60_000;
   const expiresAt = githubUserLink.pviumAccessTokenExpiresAt?.getTime();
-  if (!expiresAt || expiresAt - refreshBufferMs > Date.now()) {
+  if (expiresAt && expiresAt - refreshBufferMs > Date.now()) {
     return githubUserLink.pviumAccessToken;
   }
 
@@ -289,9 +450,7 @@ async function getUsablePviumAccessToken(githubUserLink: {
       pviumRefreshToken:
         refreshed.data.refreshToken ?? githubUserLink.pviumRefreshToken,
       pviumTokenType: refreshed.data.tokenType,
-      pviumAccessTokenExpiresAt: getPviumAccessTokenExpiresAt(
-        refreshed.data.expiresIn,
-      ),
+      pviumAccessTokenExpiresAt: getPviumAccessTokenExpiresAt(refreshed.data),
     },
   });
 

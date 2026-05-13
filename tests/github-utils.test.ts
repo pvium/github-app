@@ -9,6 +9,7 @@ import {
   inviteRequiredMessage,
   invoiceCreatedMessage,
 } from "../src/lib/github/messages.ts";
+import { verifyGithubSignature } from "../src/lib/github/signature.ts";
 
 describe("parseBountyLabel", () => {
   it("parses explicit currency labels", () => {
@@ -38,6 +39,46 @@ describe("parseBountyLabel", () => {
   it("rejects non-Pvium labels", () => {
     assert.equal(parseBountyLabel("bug"), null);
     assert.equal(parseBountyLabel("pvium:"), null);
+  });
+
+  it("uses a custom bounty label prefix from the environment", () => {
+    const previousPrefix = process.env.PVIUM_BOUNTY_LABEL_PREFIX;
+    process.env.PVIUM_BOUNTY_LABEL_PREFIX = "reward:";
+
+    try {
+      assert.deepEqual(parseBountyLabel("reward:15USDC"), {
+        amount: 15,
+        currency: "USDC",
+        raw: "reward:15USDC",
+      });
+      assert.equal(parseBountyLabel("pvium:15USDC"), null);
+    } finally {
+      if (previousPrefix === undefined) {
+        delete process.env.PVIUM_BOUNTY_LABEL_PREFIX;
+      } else {
+        process.env.PVIUM_BOUNTY_LABEL_PREFIX = previousPrefix;
+      }
+    }
+  });
+
+  it("accepts a custom bounty label prefix without a trailing colon", () => {
+    const previousPrefix = process.env.PVIUM_BOUNTY_LABEL_PREFIX;
+    process.env.PVIUM_BOUNTY_LABEL_PREFIX = "pviumSandbox";
+
+    try {
+      assert.deepEqual(parseBountyLabel("pviumSandbox:25USDC"), {
+        amount: 25,
+        currency: "USDC",
+        raw: "pviumSandbox:25USDC",
+      });
+      assert.equal(parseBountyLabel("pviumSandbox25USDC"), null);
+    } finally {
+      if (previousPrefix === undefined) {
+        delete process.env.PVIUM_BOUNTY_LABEL_PREFIX;
+      } else {
+        process.env.PVIUM_BOUNTY_LABEL_PREFIX = previousPrefix;
+      }
+    }
   });
 });
 
@@ -95,9 +136,24 @@ describe("GitHub messages", () => {
       currency: "USDC",
     });
 
-    assert.match(
-      body,
-      /\[Pay reward\]\(https:\/\/pvium\.test\/invoice\/123\)/,
+    assert.match(body, /\[PAY REWARD\]\(https:\/\/pvium\.test\/invoice\/123\)/);
+  });
+});
+
+describe("verifyGithubSignature", () => {
+  it("validates GitHub's documented SHA-256 webhook signature example", () => {
+    const secret = "It's a Secret to Everybody";
+    const payload = "Hello, World!";
+    const signature =
+      "sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17";
+
+    assert.equal(
+      verifyGithubSignature({
+        secret,
+        payload,
+        signature,
+      }),
+      true,
     );
   });
 });
