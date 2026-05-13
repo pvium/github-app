@@ -13,10 +13,23 @@ import { verifyGithubSignature } from "../src/lib/github/signature.ts";
 
 describe("parseBountyLabel", () => {
   it("parses explicit currency labels", () => {
+    assert.deepEqual(parseBountyLabel("pvium:1USDC"), {
+      amount: 1,
+      currency: "USDC",
+      raw: "pvium:1USDC",
+    });
     assert.deepEqual(parseBountyLabel("pvium:20USDC"), {
       amount: 20,
       currency: "USDC",
       raw: "pvium:20USDC",
+    });
+  });
+
+  it("parses labels with a space between amount and currency", () => {
+    assert.deepEqual(parseBountyLabel("pvium:1 USDC"), {
+      amount: 1,
+      currency: "USDC",
+      raw: "pvium:1 USDC",
     });
   });
 
